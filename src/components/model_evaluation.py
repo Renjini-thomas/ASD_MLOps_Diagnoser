@@ -6,14 +6,15 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from sklearn.metrics import (
-    confusion_matrix,
-    classification_report,
-    roc_curve,
-    roc_auc_score,
-    accuracy_score,
-    precision_score,
-    recall_score,
-    f1_score
+confusion_matrix,
+classification_report,
+roc_curve,
+roc_auc_score,
+accuracy_score,
+precision_score,
+recall_score,
+f1_score,
+balanced_accuracy_score
 )
 
 import mlflow
@@ -21,12 +22,11 @@ import mlflow.sklearn
 from mlflow.tracking import MlflowClient
 
 from dotenv import load_dotenv
-import os
 
 load_dotenv()
 
-
 class ModelEvaluation:
+
 
     def __init__(self):
 
@@ -36,7 +36,6 @@ class ModelEvaluation:
         self.output_dir = Path("artifacts/model_evaluation")
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        self.local_uri = "file:./mlruns"
         self.remote_uri = "https://dagshub.com/renjini2539thomas/ASD_MLOps_Diagnoser.mlflow"
 
         self.model_name = "ASD_MRI_Diagnosis_Model"
@@ -60,24 +59,34 @@ class ModelEvaluation:
 
     def run(self):
 
-        model = joblib.load(self.model_path)
+        model_data = joblib.load(self.model_path)
+
+        model = model_data["model"]
+        feature_names = model_data["features"]
 
         X_test, y_test = self.load_data()
 
+        # Ensure correct feature order
+        X_test = X_test[feature_names]
+
         preds = model.predict(X_test)
-        probs = model.predict_proba(X_test)[:, 1]
+
+        classes = model.classes_
+        autism_index = list(classes).index("autism")
+
+        probs = model.predict_proba(X_test)[:, autism_index]
 
         y_binary = (y_test == "autism").astype(int)
 
         # -------------------------
         # METRICS
-        # FIX: Added zero_division=0 to avoid crashes on imbalanced predictions
         # -------------------------
 
         accuracy = accuracy_score(y_test, preds)
         precision = precision_score(y_test, preds, pos_label="autism", zero_division=0)
         recall = recall_score(y_test, preds, pos_label="autism", zero_division=0)
         f1 = f1_score(y_test, preds, pos_label="autism", zero_division=0)
+        balanced_acc = balanced_accuracy_score(y_test, preds)
         auc = roc_auc_score(y_binary, probs)
 
         # -------------------------
@@ -134,35 +143,17 @@ class ModelEvaluation:
         with open(report_path, "w") as f:
             f.write(report)
 
-        # =========================
-        # LOCAL MLFLOW LOGGING
-        # =========================
-
-        mlflow.set_tracking_uri(self.local_uri)
-        mlflow.set_experiment("ASD_Local_Evaluation")
-
-        with mlflow.start_run(run_name="evaluation"):
-
-            mlflow.log_metric("accuracy", accuracy)
-            mlflow.log_metric("precision", precision)
-            mlflow.log_metric("recall", recall)
-            mlflow.log_metric("f1_score", f1)
-            mlflow.log_metric("auc", auc)
-
-            mlflow.log_artifact(str(cm_path))
-            mlflow.log_artifact(str(roc_path))
-            mlflow.log_artifact(str(report_path))
-
-        # =========================
-        # DAGSHUB MLFLOW LOGGING
-        # =========================
+        # -------------------------
+        # MLFLOW LOGGING
+        # -------------------------
 
         mlflow.set_tracking_uri(self.remote_uri)
         mlflow.set_experiment("ASD_Model_Evaluation")
 
-        with mlflow.start_run(run_name="evaluation") as run:
+        with mlflow.start_run(run_name="evaluation"):
 
             mlflow.log_metric("accuracy", accuracy)
+            mlflow.log_metric("balanced_accuracy", balanced_acc)
             mlflow.log_metric("precision", precision)
             mlflow.log_metric("recall", recall)
             mlflow.log_metric("f1_score", f1)
@@ -174,15 +165,12 @@ class ModelEvaluation:
 
             mlflow.sklearn.log_model(
                 model,
-                artifact_path="model",
+                name="model",
                 registered_model_name=self.model_name
             )
 
         # -------------------------
         # MODEL REGISTRY
-        # FIX: Point MlflowClient to the remote URI where the model was registered.
-        # FIX: Use set_registered_model_alias instead of deprecated
-        #      transition_model_version_stage (removed in MLflow >= 2.9)
         # -------------------------
 
         client = MlflowClient(tracking_uri=self.remote_uri)
@@ -192,23 +180,13 @@ class ModelEvaluation:
         if latest_versions:
             latest_version = latest_versions[0].version
 
-            try:
-                # MLflow >= 2.9: use aliases instead of stages
-                client.set_registered_model_alias(
-                    name=self.model_name,
-                    alias="staging",
-                    version=latest_version
-                )
-                print(f"Model v{latest_version} aliased as 'staging'")
+            client.set_registered_model_alias(
+                name=self.model_name,
+                alias="staging",
+                version=latest_version
+            )
 
-            except Exception:
-                # Fallback for older MLflow versions
-                client.transition_model_version_stage(
-                    name=self.model_name,
-                    version=latest_version,
-                    stage="Staging"
-                )
-                print(f"Model v{latest_version} transitioned to Staging")
+            print(f"Model v{latest_version} aliased as 'staging'")
 
         print("\nModel Evaluation Completed")
         print(f"Accuracy  : {accuracy:.4f}")
@@ -217,3 +195,4 @@ class ModelEvaluation:
         print(f"F1 Score  : {f1:.4f}")
         print(f"AUC       : {auc:.4f}")
         print("Model registered in MLflow Model Registry.")
+
