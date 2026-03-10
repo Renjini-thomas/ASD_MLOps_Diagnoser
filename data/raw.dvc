@@ -1,0 +1,6 @@
+outs:
+- md5: 7afe9d340b585aecb033c307170600ab.dir
+  size: 1375672942
+  nfiles: 1114
+  hash: md5
+  path: raw

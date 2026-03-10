@@ -1,0 +1,15 @@
+venv/
+.env
+logs/
+mlruns/
+
+__pycache__/
+*.pyc
+
+artifacts/
+uploads/
+
+data/raw/
+data/processed/
+data/interim/
+data/preprocessed/

@@ -1,0 +1,57 @@
+stages:
+
+  data_preparation:
+    cmd: set PYTHONPATH=. && python -m src.pipeline.stage_02_data_preparation
+    deps:
+      - src/pipeline/stage_02_data_preparation.py
+      - src/components/data_preparation.py
+      - data/raw
+    outs:
+      - data/interim
+      - data/processed
+
+  mri_preprocessing:
+    cmd: set PYTHONPATH=. && python -m src.pipeline.stage_03_mri_preprocessing
+    deps:
+      - src/pipeline/stage_03_mri_preprocessing.py
+      - src/components/mri_preprocessing.py
+      - data/interim
+    outs:
+      - data/preprocessed
+
+  feature_extraction:
+    cmd: set PYTHONPATH=. && python -m src.pipeline.stage_04_feature_extraction
+    deps:
+      - src/pipeline/stage_04_feature_extraction.py
+      - src/components/feature_extraction.py
+      - data/preprocessed
+    outs:
+      - artifacts/features
+
+  feature_selection:
+    cmd: set PYTHONPATH=. && python -m src.pipeline.stage_05_feature_selection
+    deps:
+      - src/pipeline/stage_05_feature_selection.py
+      - src/components/feature_selection.py
+      - artifacts/features
+    outs:
+      - artifacts/feature_selection
+
+  model_training:
+    cmd: set PYTHONPATH=. && python -m src.pipeline.stage_06_model_training
+    deps:
+      - src/pipeline/stage_06_model_training.py
+      - src/components/model_training.py
+      - artifacts/feature_selection
+    outs:
+      - artifacts/model_training
+
+  model_evaluation:
+    cmd: set PYTHONPATH=. && python -m src.pipeline.stage_07_model_evaluation
+    deps:
+      - src/pipeline/stage_07_model_evaluation.py
+      - src/components/model_evaluation.py
+      - artifacts/model_training
+      - artifacts/feature_selection
+    outs:
+      - artifacts/model_evaluation

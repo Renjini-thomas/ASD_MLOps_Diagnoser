@@ -1,0 +1,8 @@
+[core]
+    remote = origin
+    autostage = true
+['remote "origin"']
+    url = https://dagshub.com/renjini2539thomas/ASD_MLOps_Diagnoser.dvc
+    auth = basic
+    user = renjini2539thomas
+    password = e9e153b3928f0e2d5f49aa29ca6eeb86a7f3fbf5
