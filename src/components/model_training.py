@@ -304,7 +304,13 @@ class ModelTraining:
 
         # Save best model
         best_model_path = self.output_dir / "best_model.pkl"
-        joblib.dump(best_model, best_model_path)
+        model_package = {
+        "model": best_model,
+        "features": X_train.columns.tolist()
+            }
+
+
+        joblib.dump(model_package, best_model_path)
 
         print("\n" + "=" * 50)
         print(f"Best Model      : {best_model_name}")
