@@ -46,7 +46,7 @@ class DataPreparation:
             dataset.append({
                 "subject_id": subject_id,
                 "label": label,
-                "mri_path": str(mri_path)
+                "subject_path": str(subject_dir)
             })
 
         manifest = pd.DataFrame(dataset)
@@ -66,7 +66,7 @@ class DataPreparation:
 
         train, test = train_test_split(
             manifest,
-            test_size=0.3,
+            test_size=0.2,
             stratify=manifest["label"],
             random_state=42
         )
@@ -88,14 +88,17 @@ class DataPreparation:
         for _, row in df.iterrows():
 
             label = row["label"]
-            src = Path(row["mri_path"])
+            src = Path(row["subject_path"])
 
             dest_dir = self.processed_dir / split / label
             dest_dir.mkdir(parents=True, exist_ok=True)
 
-            dest = dest_dir / f"{row['subject_id']}.mgz"
+            dest = dest_dir / row["subject_id"]
 
-            shutil.copy(src, dest)
+            if dest.exists():
+                continue
+
+            shutil.copytree(src, dest)
 
     # -----------------------------
     # RUN STAGE

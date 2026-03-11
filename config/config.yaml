@@ -2,5 +2,5 @@ data_ingestion:
   s3_mri_path: "s3://fcp-indi/data/Projects/ABIDE_Initiative/Outputs/freesurfer/5.1"
   phenotypic_url: "https://s3.amazonaws.com/fcp-indi/data/Projects/ABIDE_Initiative/Phenotypic_V1_0b_preprocessed1.csv"
   raw_data_dir: "data/raw"
-  mri_dir: "data/raw/brain_mgz"
+  mri_dir: "data/raw/abide_freesurfer"
   phenotypic_file: "data/raw/phenotypic.csv"

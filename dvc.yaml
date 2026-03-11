@@ -1,5 +1,13 @@
 stages:
 
+  data_ingestion:
+    cmd: set PYTHONPATH=. && python -m src.pipeline.stage_01_data_ingestion
+    deps:
+      - src/pipeline/stage_01_data_ingestion.py
+      - src/components/data_ingestion.py
+      - config/config.yaml
+    outs:
+      - data/raw
   data_preparation:
     cmd: set PYTHONPATH=. && python -m src.pipeline.stage_02_data_preparation
     deps:
@@ -27,6 +35,14 @@ stages:
       - data/preprocessed
     outs:
       - artifacts/features
+  morphometric_feature_extraction:
+    cmd: set PYTHONPATH=. && python -m src.pipeline.stage_04b_morphometric_feature_extraction
+    deps:
+      - src/pipeline/stage_04b_morphometric_feature_extraction.py
+      - src/components/morphometric_feature_extraction.py
+      - data/processed
+    outs:
+      - artifacts/morphometric_features
 
 
   feature_aggregation:

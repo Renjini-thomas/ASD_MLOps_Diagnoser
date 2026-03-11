@@ -64,59 +64,59 @@ class FeatureExtraction:
             "gfcc_bbox_ratio"
         ]
 
-        # 20 Wavelet features (4 bands × 5 stats)
-        bands = ["LL", "LH", "HL", "HH"]
-        stats = ["mean", "std", "var", "max", "min"]
-        wavelet_names = [f"wavelet_{b}_{s}" for b in bands for s in stats]
+        # # 20 Wavelet features (4 bands × 5 stats)
+        # bands = ["LL", "LH", "HL", "HH"]
+        # stats = ["mean", "std", "var", "max", "min"]
+        # wavelet_names = [f"wavelet_{b}_{s}" for b in bands for s in stats]
 
-        # 6 Asymmetry features (expanded from 2)
-        asymmetry_names = [
-            "asym_mean_diff",
-            "asym_std_diff",
-            "asym_energy",
-            "asym_bilateral_corr",
-            "asym_iqr",
-            "asym_high_frac"
-        ]
+        # # 6 Asymmetry features (expanded from 2)
+        # asymmetry_names = [
+        #     "asym_mean_diff",
+        #     "asym_std_diff",
+        #     "asym_energy",
+        #     "asym_bilateral_corr",
+        #     "asym_iqr",
+        #     "asym_high_frac"
+        # ]
 
-        # 5 HOG summary features
-        hog_names = [
-            "hog_mean",
-            "hog_std",
-            "hog_energy",
-            "hog_p75",
-            "hog_max"
-        ]
+        # # 5 HOG summary features
+        # hog_names = [
+        #     "hog_mean",
+        #     "hog_std",
+        #     "hog_energy",
+        #     "hog_p75",
+        #     "hog_max"
+        # ]
 
-        # 9 Intensity distribution features
-        intensity_names = [
-            "intensity_p10",
-            "intensity_p25",
-            "intensity_p50",
-            "intensity_p75",
-            "intensity_p90",
-            "intensity_skew",
-            "intensity_kurtosis",
-            "intensity_iqr",
-            "intensity_above_mean"
-        ]
+        # # 9 Intensity distribution features
+        # intensity_names = [
+        #     "intensity_p10",
+        #     "intensity_p25",
+        #     "intensity_p50",
+        #     "intensity_p75",
+        #     "intensity_p90",
+        #     "intensity_skew",
+        #     "intensity_kurtosis",
+        #     "intensity_iqr",
+        #     "intensity_above_mean"
+        # ]
 
-        # 11 CC sub-region features (5 regions × 2 stats + genu/splenium ratio)
-        cc_sub_names = (
-            [f"cc_region_{i}_{t}" for i in range(5)
-             for t in ["area_ratio", "thickness"]] +
-            ["cc_genu_splenium_ratio"]
-        )
+        # # 11 CC sub-region features (5 regions × 2 stats + genu/splenium ratio)
+        # cc_sub_names = (
+        #     [f"cc_region_{i}_{t}" for i in range(5)
+        #      for t in ["area_ratio", "thickness"]] +
+        #     ["cc_genu_splenium_ratio"]
+        # )
 
         return (
             glcm_names +
             lbp_names +
-            gfcc_names +
-            wavelet_names +
-            asymmetry_names +
-            hog_names +
-            intensity_names +
-            cc_sub_names
+            gfcc_names 
+            # wavelet_names +
+            # asymmetry_names +
+            # hog_names +
+            # intensity_names +
+            # cc_sub_names
         )
 
     # ------------------------------------------------
@@ -231,162 +231,162 @@ class FeatureExtraction:
             axis_ratio, convex_ratio, bbox_ratio
         ]
 
-    # ------------------------------------------------
-    # 4. WAVELET FEATURES
-    # ------------------------------------------------
+    # # ------------------------------------------------
+    # # 4. WAVELET FEATURES
+    # # ------------------------------------------------
 
-    def wavelet_features(self, img):
+    # def wavelet_features(self, img):
 
-        coeffs = pywt.dwt2(img.astype(float), 'haar')
-        LL, (LH, HL, HH) = coeffs
+    #     coeffs = pywt.dwt2(img.astype(float), 'haar')
+    #     LL, (LH, HL, HH) = coeffs
 
-        features = []
-        for band in [LL, LH, HL, HH]:
-            features.append(np.mean(band))
-            features.append(np.std(band))
-            features.append(np.var(band))
-            features.append(np.max(band))
-            features.append(np.min(band))
+    #     features = []
+    #     for band in [LL, LH, HL, HH]:
+    #         features.append(np.mean(band))
+    #         features.append(np.std(band))
+    #         features.append(np.var(band))
+    #         features.append(np.max(band))
+    #         features.append(np.min(band))
 
-        return features
+    #     return features
 
-    # ------------------------------------------------
-    # 5. ASYMMETRY FEATURES (expanded — 6 features)
-    # ------------------------------------------------
+    # # ------------------------------------------------
+    # # 5. ASYMMETRY FEATURES (expanded — 6 features)
+    # # ------------------------------------------------
 
-    def asymmetry_features(self, img):
-        """
-        Bilateral hemisphere asymmetry features.
-        ASD brains show measurable structural asymmetry differences.
-        """
-        h, w   = img.shape
-        mid    = w // 2
-        left   = img[:, :mid].astype(float)
-        right  = np.fliplr(img[:, mid:]).astype(float)
+    # def asymmetry_features(self, img):
+    #     """
+    #     Bilateral hemisphere asymmetry features.
+    #     ASD brains show measurable structural asymmetry differences.
+    #     """
+    #     h, w   = img.shape
+    #     mid    = w // 2
+    #     left   = img[:, :mid].astype(float)
+    #     right  = np.fliplr(img[:, mid:]).astype(float)
 
-        # Ensure equal width in case of odd image width
-        min_w = min(left.shape[1], right.shape[1])
-        left  = left[:, :min_w]
-        right = right[:, :min_w]
+    #     # Ensure equal width in case of odd image width
+    #     min_w = min(left.shape[1], right.shape[1])
+    #     left  = left[:, :min_w]
+    #     right = right[:, :min_w]
 
-        diff = np.abs(left - right)
+    #     diff = np.abs(left - right)
 
-        mean_diff        = np.mean(diff)
-        std_diff         = np.std(diff)
-        energy           = np.sum(diff) / (h * min_w + 1e-6)
-        bilateral_corr   = np.corrcoef(left.ravel(), right.ravel())[0, 1]
-        iqr              = float(np.percentile(diff, 75) - np.percentile(diff, 25))
-        high_frac        = float(np.mean(diff > np.mean(diff)))
+    #     mean_diff        = np.mean(diff)
+    #     std_diff         = np.std(diff)
+    #     energy           = np.sum(diff) / (h * min_w + 1e-6)
+    #     bilateral_corr   = np.corrcoef(left.ravel(), right.ravel())[0, 1]
+    #     iqr              = float(np.percentile(diff, 75) - np.percentile(diff, 25))
+    #     high_frac        = float(np.mean(diff > np.mean(diff)))
 
-        return [mean_diff, std_diff, energy, bilateral_corr, iqr, high_frac]
+    #     return [mean_diff, std_diff, energy, bilateral_corr, iqr, high_frac]
 
-    # ------------------------------------------------
-    # 6. HOG FEATURES (structural gradient patterns)
-    # ------------------------------------------------
+    # # ------------------------------------------------
+    # # 6. HOG FEATURES (structural gradient patterns)
+    # # ------------------------------------------------
 
-    def hog_features(self, img):
-        """
-        Histogram of Oriented Gradients captures edge/gradient
-        structure — useful for detecting morphological differences
-        in brain tissue organisation.
-        """
-        hog_vec = hog(
-            img,
-            orientations=8,
-            pixels_per_cell=(16, 16),
-            cells_per_block=(2, 2),
-            feature_vector=True
-        )
+    # def hog_features(self, img):
+    #     """
+    #     Histogram of Oriented Gradients captures edge/gradient
+    #     structure — useful for detecting morphological differences
+    #     in brain tissue organisation.
+    #     """
+    #     hog_vec = hog(
+    #         img,
+    #         orientations=8,
+    #         pixels_per_cell=(16, 16),
+    #         cells_per_block=(2, 2),
+    #         feature_vector=True
+    #     )
 
-        return [
-            float(np.mean(hog_vec)),
-            float(np.std(hog_vec)),
-            float(np.sum(hog_vec ** 2)),        # HOG energy
-            float(np.percentile(hog_vec, 75)),
-            float(np.max(hog_vec))
-        ]
+    #     return [
+    #         float(np.mean(hog_vec)),
+    #         float(np.std(hog_vec)),
+    #         float(np.sum(hog_vec ** 2)),        # HOG energy
+    #         float(np.percentile(hog_vec, 75)),
+    #         float(np.max(hog_vec))
+    #     ]
 
-    # ------------------------------------------------
-    # 7. INTENSITY DISTRIBUTION FEATURES
-    # ------------------------------------------------
+    # # ------------------------------------------------
+    # # 7. INTENSITY DISTRIBUTION FEATURES
+    # # ------------------------------------------------
 
-    def intensity_features(self, img):
-        """
-        Percentile-based intensity statistics capture shifts in
-        brain tissue density distribution between ASD and control.
-        """
-        flat = img.ravel().astype(float)
+    # def intensity_features(self, img):
+    #     """
+    #     Percentile-based intensity statistics capture shifts in
+    #     brain tissue density distribution between ASD and control.
+    #     """
+    #     flat = img.ravel().astype(float)
 
-        p10 = float(np.percentile(flat, 10))
-        p25 = float(np.percentile(flat, 25))
-        p50 = float(np.percentile(flat, 50))
-        p75 = float(np.percentile(flat, 75))
-        p90 = float(np.percentile(flat, 90))
+    #     p10 = float(np.percentile(flat, 10))
+    #     p25 = float(np.percentile(flat, 25))
+    #     p50 = float(np.percentile(flat, 50))
+    #     p75 = float(np.percentile(flat, 75))
+    #     p90 = float(np.percentile(flat, 90))
 
-        skewness = float(scipy.stats.skew(flat))
-        kurtosis = float(scipy.stats.kurtosis(flat))
-        iqr      = p75 - p25
-        above_mean = float(np.mean(flat > np.mean(flat)))
+    #     skewness = float(scipy.stats.skew(flat))
+    #     kurtosis = float(scipy.stats.kurtosis(flat))
+    #     iqr      = p75 - p25
+    #     above_mean = float(np.mean(flat > np.mean(flat)))
 
-        return [p10, p25, p50, p75, p90, skewness, kurtosis, iqr, above_mean]
+    #     return [p10, p25, p50, p75, p90, skewness, kurtosis, iqr, above_mean]
 
-    # ------------------------------------------------
-    # 8. CC SUB-REGION FEATURES (clinically validated)
-    # ------------------------------------------------
+    # # ------------------------------------------------
+    # # 8. CC SUB-REGION FEATURES (clinically validated)
+    # # ------------------------------------------------
 
-    def cc_subregion_features(self, img):
-        """
-        Divides the corpus callosum into 5 anatomical sub-regions:
-        genu, rostral body, anterior midbody, posterior midbody, splenium.
-        Genu/splenium size differences are a clinically validated ASD marker.
-        Returns 11 features: 5 regions × (area_ratio + thickness) + genu/splenium ratio.
-        """
-        try:
-            thresholds = threshold_multiotsu(img, classes=3)
-        except Exception:
-            return [0] * 11
+    # def cc_subregion_features(self, img):
+    #     """
+    #     Divides the corpus callosum into 5 anatomical sub-regions:
+    #     genu, rostral body, anterior midbody, posterior midbody, splenium.
+    #     Genu/splenium size differences are a clinically validated ASD marker.
+    #     Returns 11 features: 5 regions × (area_ratio + thickness) + genu/splenium ratio.
+    #     """
+    #     try:
+    #         thresholds = threshold_multiotsu(img, classes=3)
+    #     except Exception:
+    #         return [0] * 11
 
-        binary = (np.digitize(img, bins=thresholds) == 2).astype(np.uint8)
+    #     binary = (np.digitize(img, bins=thresholds) == 2).astype(np.uint8)
 
-        if binary.sum() == 0:
-            return [0] * 11
+    #     if binary.sum() == 0:
+    #         return [0] * 11
 
-        # Find column extent of CC mask
-        cols = np.where(binary.any(axis=0))[0]
+    #     # Find column extent of CC mask
+    #     cols = np.where(binary.any(axis=0))[0]
 
-        if len(cols) < 5:
-            return [0] * 11
+    #     if len(cols) < 5:
+    #         return [0] * 11
 
-        col_min      = int(cols[0])
-        col_max      = int(cols[-1])
-        region_width = max((col_max - col_min) // 5, 1)
-        total_area   = binary.sum() + 1e-6
+    #     col_min      = int(cols[0])
+    #     col_max      = int(cols[-1])
+    #     region_width = max((col_max - col_min) // 5, 1)
+    #     total_area   = binary.sum() + 1e-6
 
-        features = []
-        region_areas = []
+    #     features = []
+    #     region_areas = []
 
-        for i in range(5):
-            c_start = col_min + i * region_width
-            c_end   = c_start + region_width if i < 4 else col_max
-            region  = binary[:, c_start:c_end]
+    #     for i in range(5):
+    #         c_start = col_min + i * region_width
+    #         c_end   = c_start + region_width if i < 4 else col_max
+    #         region  = binary[:, c_start:c_end]
 
-            area      = float(region.sum())
-            col_sums  = np.sum(region, axis=0)
-            thickness = float(np.mean(col_sums[col_sums > 0])) if col_sums.any() else 0.0
+    #         area      = float(region.sum())
+    #         col_sums  = np.sum(region, axis=0)
+    #         thickness = float(np.mean(col_sums[col_sums > 0])) if col_sums.any() else 0.0
 
-            features.append(area / total_area)
-            features.append(thickness)
-            region_areas.append(area)
+    #         features.append(area / total_area)
+    #         features.append(thickness)
+    #         region_areas.append(area)
 
-        # Genu (region 0) / Splenium (region 4) ratio — key ASD biomarker
-        genu_splenium_ratio = region_areas[0] / (region_areas[4] + 1e-6)
-        features.append(float(genu_splenium_ratio))
+    #     # Genu (region 0) / Splenium (region 4) ratio — key ASD biomarker
+    #     genu_splenium_ratio = region_areas[0] / (region_areas[4] + 1e-6)
+    #     features.append(float(genu_splenium_ratio))
 
-        return features
+    #     return features
 
-    # ------------------------------------------------
-    # PROCESS DATASET
-    # ------------------------------------------------
+    # # ------------------------------------------------
+    # # PROCESS DATASET
+    # # ------------------------------------------------
 
     def process_split(self, split):
 
@@ -408,12 +408,7 @@ class FeatureExtraction:
                     features = (
                         self.glcm_features(img)        +   # 12
                         self.lbp_features(img)         +   # 54
-                        self.gfcc_features(img)        +   # 11
-                        self.wavelet_features(img)     +   # 20
-                        self.asymmetry_features(img)   +   #  6
-                        self.hog_features(img)         +   #  5
-                        self.intensity_features(img)   +   #  9
-                        self.cc_subregion_features(img)    # 11
+                        self.gfcc_features(img)        # 11    
                     )                                      # = 128 total features
                 except Exception as e:
                     print(f"Error processing {f.name}: {e}")

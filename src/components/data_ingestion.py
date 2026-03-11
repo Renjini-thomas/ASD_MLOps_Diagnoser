@@ -34,6 +34,9 @@ class DataIngestion:
             "*",
             "--include",
             "*/mri/brain.mgz",
+            "--include", "*/stats/aseg.stats",
+            "--include", "*/stats/lh.aparc.stats",
+            "--include", "*/stats/rh.aparc.stats",
             "--no-sign-request",
         ]
 
