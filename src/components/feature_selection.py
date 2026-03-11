@@ -1,97 +1,68 @@
 import pandas as pd
+import numpy as np
 from pathlib import Path
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.feature_selection import RFECV
-from sklearn.model_selection import StratifiedKFold
 
 
 class FeatureSelection:
 
     def __init__(self):
 
-        self.input_dir = Path("artifacts/features")
+        self.input_dir = Path("artifacts/aggregated_features")
         self.output_dir = Path("artifacts/feature_selection")
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        # FIX: Use RFECV — automatically finds the optimal number of features
-        # via cross-validation rather than a fixed arbitrary count
-        self.min_features = 10
+        # correlation threshold (paper-style redundancy removal)
+        self.corr_threshold = 0.90
+
+
+    def remove_correlated_features(self, X):
+
+        corr_matrix = X.corr().abs()
+
+        upper = corr_matrix.where(
+            np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)
+        )
+
+        to_drop = [col for col in upper.columns if any(upper[col] > self.corr_threshold)]
+
+        print(f"Removing {len(to_drop)} highly correlated features")
+
+        return X.drop(columns=to_drop), to_drop
+
 
     def run(self):
 
-        train_df = pd.read_csv(self.input_dir / "train_features.csv")
-        test_df = pd.read_csv(self.input_dir / "test_features.csv")
+        train_df = pd.read_csv(self.input_dir / "train_aggregated.csv")
+        test_df = pd.read_csv(self.input_dir / "test_aggregated.csv")
 
-        X_train = train_df.drop(["image_id", "label"], axis=1)
-        y_train = train_df["label"]
+        X_train = train_df.drop(["subject", "label"], axis=1)
 
-        # Use a lighter RF for selection to reduce overfitting
-        rf = RandomForestClassifier(
-            n_estimators=200,
-            max_depth=10,           # FIX: limit depth to reduce overfitting
-            class_weight="balanced",  # FIX: handle class imbalance
-            random_state=42,
-            n_jobs=-1
-        )
+        # Cross-correlation filtering
+        X_filtered, dropped_features = self.remove_correlated_features(X_train)
 
-        rf.fit(X_train, y_train)
+        selected_features = X_filtered.columns.tolist()
 
-        importance = pd.DataFrame({
-            "feature": X_train.columns,
-            "importance": rf.feature_importances_
-        })
+        print(f"Remaining features after correlation filtering: {len(selected_features)}")
 
-        importance = importance.sort_values(
-            by="importance",
-            ascending=False
-        )
-
-        importance.to_csv(
-            self.output_dir / "feature_importance.csv",
+        # save dropped + selected info
+        pd.DataFrame({"dropped_feature": dropped_features}).to_csv(
+            self.output_dir / "dropped_features.csv",
             index=False
         )
 
-        # FIX: RFECV selects the optimal feature count automatically
-        # using cross-validation — avoids arbitrary n_features choice
-        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-
-        selector = RFECV(
-            estimator=RandomForestClassifier(
-                n_estimators=100,
-                max_depth=8,
-                class_weight="balanced",
-                random_state=42,
-                n_jobs=-1
-            ),
-            step=5,
-            cv=cv,
-            scoring="f1_macro",    # Use F1 macro for class-balanced scoring
-            min_features_to_select=self.min_features,
-            n_jobs=-1
-        )
-
-        selector.fit(X_train, y_train)
-
-        selected_features = X_train.columns[selector.support_]
-
-        print(f"Optimal number of features selected: {len(selected_features)}")
-
-        selected_df = pd.DataFrame({
-            "feature": selected_features
-        })
-
-        selected_df.to_csv(
+        pd.DataFrame({"selected_feature": selected_features}).to_csv(
             self.output_dir / "selected_features.csv",
             index=False
         )
 
+        # create final datasets
         train_selected = train_df[
-            ["image_id"] + selected_features.tolist() + ["label"]
+            ["subject"] + selected_features + ["label"]
         ]
 
         test_selected = test_df[
-            ["image_id"] + selected_features.tolist() + ["label"]
+            ["subject"] + selected_features + ["label"]
         ]
 
         train_selected.to_csv(
@@ -103,3 +74,219 @@ class FeatureSelection:
             self.output_dir / "test_selected.csv",
             index=False
         )
+# import pandas as pd
+# from pathlib import Path
+# from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+# from sklearn.feature_selection import RFECV
+# from sklearn.model_selection import StratifiedKFold
+
+
+# class FeatureSelection:
+
+#     def __init__(self):
+
+#         self.input_dir = Path("artifacts/aggregated_features")
+#         self.output_dir = Path("artifacts/feature_selection")
+
+#         self.output_dir.mkdir(parents=True, exist_ok=True)
+
+#         # FIX: Use RFECV — automatically finds the optimal number of features
+#         # via cross-validation rather than a fixed arbitrary count
+#         self.min_features = 20
+
+#     def run(self):
+
+#         train_df = pd.read_csv(self.input_dir / "train_aggregated.csv")
+#         test_df = pd.read_csv(self.input_dir / "test_aggregated.csv")
+
+#         X_train = train_df.drop(["subject", "label"], axis=1)
+#         y_train = train_df["label"]
+
+#         # Use a lighter RF for selection to reduce overfitting
+#         rf = RandomForestClassifier(
+#             n_estimators=200,
+#             max_depth=10,           # FIX: limit depth to reduce overfitting
+#             class_weight="balanced",  # FIX: handle class imbalance
+#             random_state=42,
+#             n_jobs=-1
+#         )
+
+#         rf.fit(X_train, y_train)
+
+#         importance = pd.DataFrame({
+#             "feature": X_train.columns,
+#             "importance": rf.feature_importances_
+#         })
+
+#         importance = importance.sort_values(
+#             by="importance",
+#             ascending=False
+#         )
+
+#         importance.to_csv(
+#             self.output_dir / "feature_importance.csv",
+#             index=False
+#         )
+
+#         # FIX: RFECV selects the optimal feature count automatically
+#         # using cross-validation — avoids arbitrary n_features choice
+#         cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
+#         selector = RFECV(
+#             estimator=RandomForestClassifier(
+#                 n_estimators=100,
+#                 max_depth=8,
+#                 class_weight="balanced",
+#                 random_state=42,
+#                 n_jobs=-1
+#             ),
+#             step=5,
+#             cv=cv,
+#             scoring="f1_macro",    # Use F1 macro for class-balanced scoring
+#             min_features_to_select=self.min_features,
+#             n_jobs=-1
+#         )
+
+#         selector.fit(X_train, y_train)
+
+#         selected_features = X_train.columns[selector.support_]
+
+#         print(f"Optimal number of features selected: {len(selected_features)}")
+
+#         selected_df = pd.DataFrame({
+#             "feature": selected_features
+#         })
+
+#         selected_df.to_csv(
+#             self.output_dir / "selected_features.csv",
+#             index=False
+#         )
+
+#         train_selected = train_df[
+#             ["subject"] + selected_features.tolist() + ["label"]
+#         ]
+
+#         test_selected = test_df[
+#             ["subject"] + selected_features.tolist() + ["label"]
+#         ]
+
+#         train_selected.to_csv(
+#             self.output_dir / "train_selected.csv",
+#             index=False
+#         )
+
+#         test_selected.to_csv(
+#             self.output_dir / "test_selected.csv",
+#             index=False
+#         )
+# import numpy as np
+# import pandas as pd
+# from pathlib import Path
+# from scipy.stats import rankdata
+# from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+# from sklearn.feature_selection import RFECV, VarianceThreshold
+# from sklearn.inspection import permutation_importance
+# from sklearn.model_selection import StratifiedKFold
+
+
+# class FeatureSelection:
+
+#     def __init__(self):
+#         self.input_dir = Path("artifacts/aggregated_features")
+#         self.output_dir = Path("artifacts/feature_selection")
+#         self.output_dir.mkdir(parents=True, exist_ok=True)
+#         self.min_features = 20
+#         self.correlation_threshold = 0.90
+#         self.variance_threshold = 0.01
+
+#     def remove_low_variance(self, X):
+#         vt = VarianceThreshold(threshold=self.variance_threshold)
+#         vt.fit(X)
+#         kept = X.columns[vt.get_support()]
+#         print(f"Variance filter: {X.shape[1]} → {len(kept)} features")
+#         return X[kept]
+
+#     def remove_correlated_features(self, X):
+#         corr_matrix = X.corr().abs()
+#         upper = corr_matrix.where(
+#             np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)
+#         )
+#         to_drop = [col for col in upper.columns if any(upper[col] > self.correlation_threshold)]
+#         print(f"Correlation filter: dropping {len(to_drop)} redundant features")
+#         return X.drop(columns=to_drop)
+
+#     def run(self):
+#         train_df = pd.read_csv(self.input_dir / "train_aggregated.csv")
+#         test_df = pd.read_csv(self.input_dir / "test_aggregated.csv")
+
+#         X_train = train_df.drop(["subject", "label"], axis=1)
+#         y_train = train_df["label"]
+
+#         # Step 1: Remove near-zero variance features
+#         X_train = self.remove_low_variance(X_train)
+
+#         # Step 2: Remove highly correlated features
+#         X_train = self.remove_correlated_features(X_train)
+
+#         # Step 3: Fit RF + GB, aggregate importance rankings
+#         rf = RandomForestClassifier(
+#             n_estimators=200, max_depth=10,
+#             class_weight="balanced", random_state=42, n_jobs=-1
+#         )
+#         rf.fit(X_train, y_train)
+
+#         gb = GradientBoostingClassifier(
+#             n_estimators=100, max_depth=4, random_state=42
+#         )
+#         gb.fit(X_train, y_train)
+
+#         rf_ranks = rankdata(-rf.feature_importances_)
+#         gb_ranks = rankdata(-gb.feature_importances_)
+#         avg_rank = (rf_ranks + gb_ranks) / 2
+
+#         # Step 4: Permutation importance (bias-corrected)
+#         perm = permutation_importance(
+#             rf, X_train, y_train,
+#             n_repeats=10, scoring="f1_macro",
+#             random_state=42, n_jobs=-1
+#         )
+
+#         importance = pd.DataFrame({
+#             "feature": X_train.columns,
+#             "rf_importance": rf.feature_importances_,
+#             "gb_importance": gb.feature_importances_,
+#             "avg_rank": avg_rank,
+#             "perm_importance_mean": perm.importances_mean,
+#             "perm_importance_std": perm.importances_std,
+#         }).sort_values("avg_rank")
+
+#         importance.to_csv(self.output_dir / "feature_importance.csv", index=False)
+
+#         # Step 5: RFECV using GradientBoosting for cross-validated selection
+#         cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
+#         selector = RFECV(
+#             estimator=GradientBoostingClassifier(
+#                 n_estimators=100, max_depth=4, random_state=42
+#             ),
+#             step=5,
+#             cv=cv,
+#             scoring="f1_macro",
+#             min_features_to_select=self.min_features,
+#             n_jobs=-1
+#         )
+#         selector.fit(X_train, y_train)
+
+#         selected_features = X_train.columns[selector.support_].tolist()
+#         print(f"Optimal features selected: {len(selected_features)}")
+
+#         pd.DataFrame({"feature": selected_features}).to_csv(
+#             self.output_dir / "selected_features.csv", index=False
+#         )
+
+#         # Align test set to same filtered features
+#         train_selected = train_df[["subject"] + selected_features + ["label"]]
+#         test_selected = test_df[["subject"] + selected_features + ["label"]]
+
+#         train_selected.to_csv(self.output_dir / "train_selected.csv", index=False)
+#         test_selected.to_csv(self.output_dir / "test_selected.csv", index=False)

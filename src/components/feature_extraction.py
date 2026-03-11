@@ -7,7 +7,7 @@ from tqdm import tqdm
 from skimage.feature import graycomatrix, graycoprops, local_binary_pattern
 from skimage.filters import threshold_multiotsu
 from skimage.measure import regionprops
-
+import pywt
 
 class FeatureExtraction:
 
@@ -55,13 +55,42 @@ class FeatureExtraction:
             "gfcc_convex_ratio",
             "gfcc_bbox_ratio"
         ]
+        # Wavelet feature names
+        bands = ["LL", "LH", "HL", "HH"]
+        stats = ["mean", "std", "var", "max", "min"]
 
-        return glcm_names + lbp_names + gfcc_names
+        wavelet_names = []
+
+    
+        asymmetry_names = [
+        "asym_mean_diff",
+        "asym_std_diff"
+        ]
+        for b in bands:
+            for s in stats:
+                wavelet_names.append(f"wavelet_{b}_{s}")
+        return glcm_names + lbp_names + gfcc_names + wavelet_names + asymmetry_names
 
     # ------------------------------------------------
     # GLCM FEATURES (MULTI-DIRECTIONAL, MULTI-SCALE)
     # ------------------------------------------------
+    def asymmetry_features(self, img):
 
+        h, w = img.shape
+
+        left = img[:, :w//2]
+        right = img[:, w//2:]
+
+        left_mean = np.mean(left)
+        right_mean = np.mean(right)
+
+        left_std = np.std(left)
+        right_std = np.std(right)
+
+        mean_diff = abs(left_mean - right_mean)
+        std_diff = abs(left_std - right_std)
+
+        return [mean_diff, std_diff]
     def glcm_features(self, img):
 
         # Quantize image from 256 → 64 gray levels
@@ -202,6 +231,24 @@ class FeatureExtraction:
             convex_ratio,
             bbox_ratio
         ]
+    def wavelet_features(self, img):
+
+    # Perform 2D discrete wavelet transform
+        coeffs = pywt.dwt2(img, 'haar')
+
+        LL, (LH, HL, HH) = coeffs
+
+        features = []
+
+        for band in [LL, LH, HL, HH]:
+
+                features.append(np.mean(band))
+                features.append(np.std(band))
+                features.append(np.var(band))
+                features.append(np.max(band))
+                features.append(np.min(band))
+
+        return features
 
     # ------------------------------------------------
     # PROCESS DATASET
@@ -227,8 +274,10 @@ class FeatureExtraction:
                 glcm = self.glcm_features(img)
                 lbp = self.lbp_features(img)
                 gfcc = self.gfcc_features(img)
+                wavelet = self.wavelet_features(img)
+                assymmetry = self.asymmetry_features(img)   
 
-                features = glcm + lbp + gfcc
+                features = glcm + lbp + gfcc + wavelet + assymmetry
 
                 dataset.append(
                     [f.stem] + features + [label]

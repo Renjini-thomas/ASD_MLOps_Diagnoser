@@ -59,8 +59,8 @@ stages:
       nfiles: 7784
     - path: src/components/feature_extraction.py
       hash: md5
-      md5: 60c3f059c6bf46bde4e3839ad29079bc
-      size: 7225
+      md5: 2ac64fb3ec63b58b2ebc48579d8ba1a4
+      size: 8682
     - path: src/pipeline/stage_04_feature_extraction.py
       hash: md5
       md5: 7fd83430bcca3b5eaf137fdb8def5d59
@@ -68,77 +68,99 @@ stages:
     outs:
     - path: artifacts/features
       hash: md5
-      md5: 887c2e84e7586d5a7341acb1e60b5a3b.dir
-      size: 5126683
+      md5: a4326191f81e954d182e7e97b2e21843.dir
+      size: 8073279
       nfiles: 2
   feature_selection:
-    cmd: set PYTHONPATH=. && python -m src.pipeline.stage_05_feature_selection
+    cmd: set PYTHONPATH=. && python -m src.pipeline.stage_06_feature_selection
     deps:
-    - path: artifacts/features
+    - path: artifacts/aggregated_features
       hash: md5
-      md5: 887c2e84e7586d5a7341acb1e60b5a3b.dir
-      size: 5126683
+      md5: 6b82eeb681d219077c8f96feebdf6a59.dir
+      size: 2386347
       nfiles: 2
     - path: src/components/feature_selection.py
       hash: md5
-      md5: b240b28ba639a56ab558cf23bc555af4
-      size: 3244
-    - path: src/pipeline/stage_05_feature_selection.py
+      md5: 7fd436faa2ab05df3661c348c59d8a87
+      size: 10141
+    - path: src/pipeline/stage_06_feature_selection.py
       hash: md5
       md5: aefe753f8bf78c049122fb2816363276
       size: 426
     outs:
     - path: artifacts/feature_selection
       hash: md5
-      md5: febca29c6bc55535aa439f61cc82eef5.dir
-      size: 4916777
+      md5: 99b278164a29e3221c0aef3556239490.dir
+      size: 1550804
       nfiles: 4
   model_training:
-    cmd: set PYTHONPATH=. && python -m src.pipeline.stage_06_model_training
+    cmd: set PYTHONPATH=. && python -m src.pipeline.stage_07_model_training
     deps:
     - path: artifacts/feature_selection
       hash: md5
-      md5: febca29c6bc55535aa439f61cc82eef5.dir
-      size: 4916777
+      md5: 99b278164a29e3221c0aef3556239490.dir
+      size: 1550804
       nfiles: 4
     - path: src/components/model_training.py
       hash: md5
-      md5: 3c49520306433e27deb6beaa50006abf
-      size: 11586
-    - path: src/pipeline/stage_06_model_training.py
+      md5: b046aa2304090dec9518558cd893f890
+      size: 11584
+    - path: src/pipeline/stage_07_model_training.py
       hash: md5
       md5: a99eb901e50a82c55d8bfef46fec3c05
       size: 537
     outs:
     - path: artifacts/model_training
       hash: md5
-      md5: 17ba0a644ec3c8718f20baba21dbd843.dir
-      size: 5214
+      md5: da50e18c2fa8284417b7839677740395.dir
+      size: 8527
       nfiles: 2
   model_evaluation:
-    cmd: set PYTHONPATH=. && python -m src.pipeline.stage_07_model_evaluation
+    cmd: set PYTHONPATH=. && python -m src.pipeline.stage_08_model_evaluation
     deps:
     - path: artifacts/feature_selection
       hash: md5
-      md5: febca29c6bc55535aa439f61cc82eef5.dir
-      size: 4916777
+      md5: 99b278164a29e3221c0aef3556239490.dir
+      size: 1550804
       nfiles: 4
     - path: artifacts/model_training
       hash: md5
-      md5: 17ba0a644ec3c8718f20baba21dbd843.dir
-      size: 5214
+      md5: da50e18c2fa8284417b7839677740395.dir
+      size: 8527
       nfiles: 2
     - path: src/components/model_evaluation.py
       hash: md5
-      md5: f8ebac3bb842b4f55cf4546ea85a1d90
-      size: 5589
-    - path: src/pipeline/stage_07_model_evaluation.py
+      md5: 264725a1289ce80345d6a6e67c37da96
+      size: 5588
+    - path: src/pipeline/stage_08_model_evaluation.py
       hash: md5
       md5: 2dde754847dfb671e13b5c872417a19b
       size: 550
     outs:
     - path: artifacts/model_evaluation
       hash: md5
-      md5: 74b255b43cecd375b1611d4bf963deea.dir
-      size: 46623
+      md5: 9e51b22423a07e7cf34353c66976c1e9.dir
+      size: 40592
       nfiles: 3
+  feature_aggregation:
+    cmd: set PYTHONPATH=. && python -m src.pipeline.stage_05_feature_aggregation
+    deps:
+    - path: artifacts/features
+      hash: md5
+      md5: a4326191f81e954d182e7e97b2e21843.dir
+      size: 8073279
+      nfiles: 2
+    - path: src/components/feature_aggregation.py
+      hash: md5
+      md5: 4fcfdc7d6a0316b0448c2c5754920dce
+      size: 1299
+    - path: src/pipeline/stage_05_feature_aggregation.py
+      hash: md5
+      md5: efacb3933a1b62540e751edc7563639e
+      size: 471
+    outs:
+    - path: artifacts/aggregated_features
+      hash: md5
+      md5: 6b82eeb681d219077c8f96feebdf6a59.dir
+      size: 2386347
+      nfiles: 2

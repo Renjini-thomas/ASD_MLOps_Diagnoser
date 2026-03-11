@@ -48,7 +48,7 @@ class ModelEvaluation:
 
         df = pd.read_csv(self.data_path)
 
-        X = df.drop(["image_id", "label"], axis=1)
+        X = df.drop(["subject", "label"], axis=1)
         y = df["label"]
 
         return X, y

@@ -46,10 +46,10 @@ class ModelTraining:
         train_df = pd.read_csv(self.input_dir / "train_selected.csv")
         test_df = pd.read_csv(self.input_dir / "test_selected.csv")
 
-        X_train = train_df.drop(["image_id", "label"], axis=1)
+        X_train = train_df.drop(["subject", "label"], axis=1)
         y_train = train_df["label"]
 
-        X_test = test_df.drop(["image_id", "label"], axis=1)
+        X_test = test_df.drop(["subject", "label"], axis=1)
         y_test = test_df["label"]
 
         print(f"Train class distribution:\n{y_train.value_counts()}")
