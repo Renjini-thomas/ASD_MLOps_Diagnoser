@@ -59,8 +59,8 @@ stages:
       nfiles: 7784
     - path: src/components/feature_extraction.py
       hash: md5
-      md5: 2ac64fb3ec63b58b2ebc48579d8ba1a4
-      size: 8682
+      md5: d218203de2a7a0a62cbbde336ba2660d
+      size: 14744
     - path: src/pipeline/stage_04_feature_extraction.py
       hash: md5
       md5: 7fd83430bcca3b5eaf137fdb8def5d59
@@ -68,21 +68,21 @@ stages:
     outs:
     - path: artifacts/features
       hash: md5
-      md5: a4326191f81e954d182e7e97b2e21843.dir
-      size: 8073279
+      md5: d793aeff918a67bed32dd642df203cef.dir
+      size: 18612276
       nfiles: 2
   feature_selection:
     cmd: set PYTHONPATH=. && python -m src.pipeline.stage_06_feature_selection
     deps:
     - path: artifacts/aggregated_features
       hash: md5
-      md5: 6b82eeb681d219077c8f96feebdf6a59.dir
-      size: 2386347
+      md5: 320410865b293268262e14f66b11e4df.dir
+      size: 5554260
       nfiles: 2
     - path: src/components/feature_selection.py
       hash: md5
-      md5: 7fd436faa2ab05df3661c348c59d8a87
-      size: 10141
+      md5: a426b07a8b74a3fb776894e8a6d5c49a
+      size: 13618
     - path: src/pipeline/stage_06_feature_selection.py
       hash: md5
       md5: aefe753f8bf78c049122fb2816363276
@@ -90,21 +90,21 @@ stages:
     outs:
     - path: artifacts/feature_selection
       hash: md5
-      md5: 99b278164a29e3221c0aef3556239490.dir
-      size: 1550804
-      nfiles: 4
+      md5: 1f370ae6dae7ddccdb9716ab08c1cca5.dir
+      size: 3321557
+      nfiles: 5
   model_training:
     cmd: set PYTHONPATH=. && python -m src.pipeline.stage_07_model_training
     deps:
     - path: artifacts/feature_selection
       hash: md5
-      md5: 99b278164a29e3221c0aef3556239490.dir
-      size: 1550804
-      nfiles: 4
+      md5: 1f370ae6dae7ddccdb9716ab08c1cca5.dir
+      size: 3321557
+      nfiles: 5
     - path: src/components/model_training.py
       hash: md5
-      md5: b046aa2304090dec9518558cd893f890
-      size: 11584
+      md5: 846dbf46b70178f62c514e82ecb4d994
+      size: 15776
     - path: src/pipeline/stage_07_model_training.py
       hash: md5
       md5: a99eb901e50a82c55d8bfef46fec3c05
@@ -112,26 +112,26 @@ stages:
     outs:
     - path: artifacts/model_training
       hash: md5
-      md5: da50e18c2fa8284417b7839677740395.dir
-      size: 8527
+      md5: 303508f354173a809c76953fd76871fb.dir
+      size: 13154
       nfiles: 2
   model_evaluation:
     cmd: set PYTHONPATH=. && python -m src.pipeline.stage_08_model_evaluation
     deps:
     - path: artifacts/feature_selection
       hash: md5
-      md5: 99b278164a29e3221c0aef3556239490.dir
-      size: 1550804
-      nfiles: 4
+      md5: 1f370ae6dae7ddccdb9716ab08c1cca5.dir
+      size: 3321557
+      nfiles: 5
     - path: artifacts/model_training
       hash: md5
-      md5: da50e18c2fa8284417b7839677740395.dir
-      size: 8527
+      md5: 303508f354173a809c76953fd76871fb.dir
+      size: 13154
       nfiles: 2
     - path: src/components/model_evaluation.py
       hash: md5
-      md5: 264725a1289ce80345d6a6e67c37da96
-      size: 5588
+      md5: da6c4ed109ef992b1e9a05e6e7d10ea0
+      size: 5984
     - path: src/pipeline/stage_08_model_evaluation.py
       hash: md5
       md5: 2dde754847dfb671e13b5c872417a19b
@@ -139,16 +139,16 @@ stages:
     outs:
     - path: artifacts/model_evaluation
       hash: md5
-      md5: 9e51b22423a07e7cf34353c66976c1e9.dir
-      size: 40592
+      md5: 7f57d7ea1398f1819ad0f69f81e43d7f.dir
+      size: 46258
       nfiles: 3
   feature_aggregation:
     cmd: set PYTHONPATH=. && python -m src.pipeline.stage_05_feature_aggregation
     deps:
     - path: artifacts/features
       hash: md5
-      md5: a4326191f81e954d182e7e97b2e21843.dir
-      size: 8073279
+      md5: d793aeff918a67bed32dd642df203cef.dir
+      size: 18612276
       nfiles: 2
     - path: src/components/feature_aggregation.py
       hash: md5
@@ -161,6 +161,6 @@ stages:
     outs:
     - path: artifacts/aggregated_features
       hash: md5
-      md5: 6b82eeb681d219077c8f96feebdf6a59.dir
-      size: 2386347
+      md5: 320410865b293268262e14f66b11e4df.dir
+      size: 5554260
       nfiles: 2

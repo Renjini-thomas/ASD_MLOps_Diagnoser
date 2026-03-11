@@ -64,6 +64,9 @@ class ModelEvaluation:
         model = model_data["model"]
         feature_names = model_data["features"]
 
+        feature_count = model_data["feature_count"]
+        model_name = model_data["model_name"]
+
         X_test, y_test = self.load_data()
 
         # Ensure correct feature order
@@ -150,7 +153,10 @@ class ModelEvaluation:
         mlflow.set_tracking_uri(self.remote_uri)
         mlflow.set_experiment("ASD_Model_Evaluation")
 
-        with mlflow.start_run(run_name="evaluation"):
+        with mlflow.start_run(run_name=f"{model_name}_evaluation"):
+            mlflow.log_param("model_name", model_name)
+            mlflow.log_param("feature_count", feature_count)
+            mlflow.log_param("features_list", ",".join(feature_names))
 
             mlflow.log_metric("accuracy", accuracy)
             mlflow.log_metric("balanced_accuracy", balanced_acc)
@@ -162,7 +168,7 @@ class ModelEvaluation:
             mlflow.log_artifact(str(cm_path))
             mlflow.log_artifact(str(roc_path))
             mlflow.log_artifact(str(report_path))
-
+            mlflow.log_artifact("artifacts/model_training/feature_subset_experiments.csv")
             mlflow.sklearn.log_model(
                 model,
                 name="model",

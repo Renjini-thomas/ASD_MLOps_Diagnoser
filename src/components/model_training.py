@@ -93,7 +93,11 @@ class ModelTraining:
     def run(self):
 
         X_train, X_test, y_train, y_test = self.load_data()
-
+        ranking_df = pd.read_csv(
+        self.input_dir / "feature_ranking.csv"
+        )
+        ranked_features = ranking_df["feature"].tolist()
+        feature_subsets = [10,20,30,35,40,45,50,55,60]
         cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
         # -----------------------------------------------
@@ -199,123 +203,233 @@ class ModelTraining:
             },
         }
 
-        results = []
-        best_score = -1
-        best_model = None
-        best_model_name = None
+        # results = []
+        # best_score = -1
+        # best_model = None
+        # best_model_name = None
+
+        # for name, config in model_configs.items():
+
+        #     print(f"\nTuning {name}...")
+
+        #     # Grid search with stratified CV and F1 macro scoring
+        #     grid_search = GridSearchCV(
+        #         estimator=config["pipeline"],
+        #         param_grid=config["param_grid"],
+        #         cv=cv,
+        #         scoring="f1_macro",
+        #         n_jobs=-1,
+        #         refit=True,
+        #         verbose=1
+        #     )
+
+        #     grid_search.fit(X_train, y_train)
+        #     model = grid_search.best_estimator_
+
+        #     print(f"  Best params: {grid_search.best_params_}")
+
+        #     train_acc, test_acc, precision, recall, f1, auc = self.evaluate(
+        #         model, X_train, y_train, X_test, y_test
+        #     )
+
+        #     print(f"  Train Acc: {train_acc:.4f} | Test Acc: {test_acc:.4f} | F1: {f1:.4f} | AUC: {auc:.4f}")
+
+        #     # ----------------------------
+        #     # LOCAL MLFLOW LOGGING
+        #     # ----------------------------
+
+        #     mlflow.set_tracking_uri(self.local_uri)
+        #     mlflow.set_experiment("ASD_Local_Experiments")
+
+        #     with mlflow.start_run(run_name=name):
+
+        #         mlflow.log_param("dataset", self.dataset_name)
+        #         mlflow.log_param("model", name)
+        #         mlflow.log_params({
+        #             f"best_{k}": v for k, v in grid_search.best_params_.items()
+        #         })
+
+        #         mlflow.log_metric("train_accuracy", train_acc)
+        #         mlflow.log_metric("test_accuracy", test_acc)
+        #         mlflow.log_metric("precision", precision)
+        #         mlflow.log_metric("recall", recall)
+        #         mlflow.log_metric("f1_score", f1)
+        #         mlflow.log_metric("auc", auc)
+
+        #         mlflow.sklearn.log_model(model, name)
+
+        #     # ----------------------------
+        #     # DAGSHUB MLFLOW LOGGING
+        #     # ----------------------------
+
+        #     mlflow.set_tracking_uri(self.remote_uri)
+        #     mlflow.set_experiment("ASD_Diagnosis_Experiments")
+
+        #     with mlflow.start_run(run_name=name):
+
+        #         mlflow.log_param("dataset", self.dataset_name)
+        #         mlflow.log_param("model", name)
+        #         mlflow.log_params({
+        #             f"best_{k}": v for k, v in grid_search.best_params_.items()
+        #         })
+
+        #         mlflow.log_metric("train_accuracy", train_acc)
+        #         mlflow.log_metric("test_accuracy", test_acc)
+        #         mlflow.log_metric("precision", precision)
+        #         mlflow.log_metric("recall", recall)
+        #         mlflow.log_metric("f1_score", f1)
+        #         mlflow.log_metric("auc", auc)
+
+        #         mlflow.sklearn.log_model(model, name)
+
+        #     results.append({
+        #         "model": name,
+        #         "best_params": str(grid_search.best_params_),
+        #         "train_accuracy": train_acc,
+        #         "test_accuracy": test_acc,
+        #         "precision": precision,
+        #         "recall": recall,
+        #         "f1_score": f1,
+        #         "auc": auc
+        #     })
+
+        #     # FIX: Also track best_accuracy correctly
+        #     score = self.composite_score(f1, recall, precision, auc)
+        #     if score > best_score:
+        #         best_score = score
+        #         best_model = model
+        #         best_model_name = name
+        #         best_test_accuracy = test_acc  # FIX: was never set before
+
+        # # Save results
+        # results_df = pd.DataFrame(results)
+        # results_path = self.output_dir / "model_results.csv"
+        # results_df.to_csv(results_path, index=False)
+
+        # # Save best model
+        # best_model_path = self.output_dir / "best_model.pkl"
+        # model_package = {
+        # "model": best_model,
+        # "features": X_train.columns.tolist()
+        #     }
+
+
+        # joblib.dump(model_package, best_model_path)
+
+        # print("\n" + "=" * 50)
+        # print(f"Best Model      : {best_model_name}")
+        # print(f"Best Test Acc   : {best_test_accuracy:.4f}")
+        # print(f"Composite Score : {best_score:.4f}")
+        # print("=" * 50)
+
+        # return results_df
+        all_results = []
+
+        global_best_score = -1
+        global_best_model = None
+        global_best_model_name = None
+        global_best_features = None
 
         for name, config in model_configs.items():
 
-            print(f"\nTuning {name}...")
+            print(f"\n========= MODEL: {name} =========")
 
-            # Grid search with stratified CV and F1 macro scoring
-            grid_search = GridSearchCV(
-                estimator=config["pipeline"],
-                param_grid=config["param_grid"],
-                cv=cv,
-                scoring="f1_macro",
-                n_jobs=-1,
-                refit=True,
-                verbose=1
-            )
+            best_model_score = -1
+            best_feature_count = None
+            best_model_instance = None
+            best_model_features = None
 
-            grid_search.fit(X_train, y_train)
-            model = grid_search.best_estimator_
+            for k in feature_subsets:
 
-            print(f"  Best params: {grid_search.best_params_}")
+                if k > len(ranked_features):
+                    continue
 
-            train_acc, test_acc, precision, recall, f1, auc = self.evaluate(
-                model, X_train, y_train, X_test, y_test
-            )
+                selected = ranked_features[:k]
 
-            print(f"  Train Acc: {train_acc:.4f} | Test Acc: {test_acc:.4f} | F1: {f1:.4f} | AUC: {auc:.4f}")
+                Xtr = X_train[selected]
+                Xte = X_test[selected]
 
-            # ----------------------------
-            # LOCAL MLFLOW LOGGING
-            # ----------------------------
+                grid_search = GridSearchCV(
+                    estimator=config["pipeline"],
+                    param_grid=config["param_grid"],
+                    cv=cv,
+                    scoring="f1_macro",
+                    n_jobs=-1,
+                    refit=True
+                )
 
-            mlflow.set_tracking_uri(self.local_uri)
-            mlflow.set_experiment("ASD_Local_Experiments")
+                grid_search.fit(Xtr, y_train)
 
-            with mlflow.start_run(run_name=name):
+                model = grid_search.best_estimator_
 
-                mlflow.log_param("dataset", self.dataset_name)
-                mlflow.log_param("model", name)
-                mlflow.log_params({
-                    f"best_{k}": v for k, v in grid_search.best_params_.items()
+                train_acc, test_acc, precision, recall, f1, auc = self.evaluate(
+                    model, Xtr, y_train, Xte, y_test
+                )
+
+                score = self.composite_score(f1, recall, precision, auc)
+
+                print(f"{name} | Top-{k} → F1={f1:.3f} Acc={test_acc:.3f}")
+
+                # MLflow logging
+                mlflow.set_tracking_uri(self.remote_uri)
+                mlflow.set_experiment("ASD_FeatureSubset_Experiments")
+
+                with mlflow.start_run(run_name=f"{name}_Top{k}"):
+
+                    mlflow.log_param("model", name)
+                    mlflow.log_param("feature_count", k)
+                    mlflow.log_params(grid_search.best_params_)
+
+                    mlflow.log_metric("accuracy", test_acc)
+                    mlflow.log_metric("precision", precision)
+                    mlflow.log_metric("recall", recall)
+                    mlflow.log_metric("f1_score", f1)
+                    mlflow.log_metric("auc", auc)
+
+                all_results.append({
+                    "model": name,
+                    "feature_count": k,
+                    "accuracy": test_acc,
+                    "f1": f1,
+                    "auc": auc
                 })
 
-                mlflow.log_metric("train_accuracy", train_acc)
-                mlflow.log_metric("test_accuracy", test_acc)
-                mlflow.log_metric("precision", precision)
-                mlflow.log_metric("recall", recall)
-                mlflow.log_metric("f1_score", f1)
-                mlflow.log_metric("auc", auc)
+                if score > best_model_score:
+                    best_model_score = score
+                    best_feature_count = k
+                    best_model_instance = model
+                    best_model_features = selected
 
-                mlflow.sklearn.log_model(model, name)
+            print(f"Best feature count for {name}: {best_feature_count}")
 
-            # ----------------------------
-            # DAGSHUB MLFLOW LOGGING
-            # ----------------------------
+            if best_model_score > global_best_score:
+                global_best_score = best_model_score
+                global_best_model = best_model_instance
+                global_best_model_name = name
+                global_best_features = best_model_features
 
-            mlflow.set_tracking_uri(self.remote_uri)
-            mlflow.set_experiment("ASD_Diagnosis_Experiments")
-
-            with mlflow.start_run(run_name=name):
-
-                mlflow.log_param("dataset", self.dataset_name)
-                mlflow.log_param("model", name)
-                mlflow.log_params({
-                    f"best_{k}": v for k, v in grid_search.best_params_.items()
-                })
-
-                mlflow.log_metric("train_accuracy", train_acc)
-                mlflow.log_metric("test_accuracy", test_acc)
-                mlflow.log_metric("precision", precision)
-                mlflow.log_metric("recall", recall)
-                mlflow.log_metric("f1_score", f1)
-                mlflow.log_metric("auc", auc)
-
-                mlflow.sklearn.log_model(model, name)
-
-            results.append({
-                "model": name,
-                "best_params": str(grid_search.best_params_),
-                "train_accuracy": train_acc,
-                "test_accuracy": test_acc,
-                "precision": precision,
-                "recall": recall,
-                "f1_score": f1,
-                "auc": auc
-            })
-
-            # FIX: Also track best_accuracy correctly
-            score = self.composite_score(f1, recall, precision, auc)
-            if score > best_score:
-                best_score = score
-                best_model = model
-                best_model_name = name
-                best_test_accuracy = test_acc  # FIX: was never set before
-
-        # Save results
-        results_df = pd.DataFrame(results)
-        results_path = self.output_dir / "model_results.csv"
-        results_df.to_csv(results_path, index=False)
+        # Save experiment table
+        results_df = pd.DataFrame(all_results)
+        results_df.to_csv(
+            self.output_dir / "feature_subset_experiments.csv",
+            index=False
+        )
 
         # Save best model
-        best_model_path = self.output_dir / "best_model.pkl"
-        model_package = {
-        "model": best_model,
-        "features": X_train.columns.tolist()
-            }
+        joblib.dump({
+            "model": global_best_model,
+            "features": global_best_features,
+            "feature_count": len(global_best_features),
+            "model_name": global_best_model_name,
+        },
+            self.output_dir / "best_model.pkl"
+        )
 
-
-        joblib.dump(model_package, best_model_path)
-
-        print("\n" + "=" * 50)
-        print(f"Best Model      : {best_model_name}")
-        print(f"Best Test Acc   : {best_test_accuracy:.4f}")
-        print(f"Composite Score : {best_score:.4f}")
-        print("=" * 50)
+        print("\n==============================")
+        print("BEST MODEL:", global_best_model_name)
+        print("BEST FEATURE COUNT:", len(global_best_features))
+        print(f"COMPOSITE SCORE: {global_best_score:.4f}")
+       
+        print("==============================")
 
         return results_df
