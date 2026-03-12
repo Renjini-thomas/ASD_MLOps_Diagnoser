@@ -11,7 +11,7 @@ class MorphometricFeatureExtraction:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     # --------------------------------
-    # PARSE ASEG
+    # PARSE ASEG (ROBUST)
     # --------------------------------
 
     def parse_aseg(self, file):
@@ -21,42 +21,40 @@ class MorphometricFeatureExtraction:
         with open(file) as f:
             for line in f:
 
-                if "Left-Hippocampus" in line:
-                    features["lh_hippo"] = float(line.split()[3])
+                line = line.strip()
 
-                if "Right-Hippocampus" in line:
-                    features["rh_hippo"] = float(line.split()[3])
+                # skip headers
+                if not line or line.startswith("#"):
+                    continue
 
-                if "Left-Amygdala" in line:
-                    features["lh_amyg"] = float(line.split()[3])
+                tokens = line.split()
 
-                if "Right-Amygdala" in line:
-                    features["rh_amyg"] = float(line.split()[3])
+                # skip non-table rows
+                if not tokens[0].isdigit():
+                    continue
 
-                if "BrainSegVol" in line:
-                    features["brain_vol"] = float(line.split()[1])
+                if len(tokens) < 5:
+                    continue
+
+                region = tokens[4]
+                volume = float(tokens[3])
+
+                if region == "Left-Hippocampus":
+                    features["lh_hippo"] = volume
+
+                elif region == "Right-Hippocampus":
+                    features["rh_hippo"] = volume
+
+                elif region == "Left-Amygdala":
+                    features["lh_amyg"] = volume
+
+                elif region == "Right-Amygdala":
+                    features["rh_amyg"] = volume
+
+                elif region == "Brain-Stem":
+                    features["brain_stem"] = volume
 
         return features
-
-    # --------------------------------
-    # PARSE APARC
-    # --------------------------------
-
-    def parse_aparc(self, file):
-
-        thickness = None
-        area = None
-
-        with open(file) as f:
-            for line in f:
-
-                if "MeanThickness" in line:
-                    thickness = float(line.split()[1])
-
-                if "SurfArea" in line:
-                    area = float(line.split()[1])
-
-        return thickness, area
 
     # --------------------------------
     # PROCESS SPLIT
@@ -75,21 +73,11 @@ class MorphometricFeatureExtraction:
                 subject_id = subject.name
 
                 aseg_file = subject / "stats" / "aseg.stats"
-                lh_file = subject / "stats" / "lh.aparc.stats"
-                rh_file = subject / "stats" / "rh.aparc.stats"
 
                 if not aseg_file.exists():
                     continue
 
                 features = self.parse_aseg(aseg_file)
-
-                lh_thick, lh_area = self.parse_aparc(lh_file)
-                rh_thick, rh_area = self.parse_aparc(rh_file)
-
-                features["lh_thickness"] = lh_thick
-                features["rh_thickness"] = rh_thick
-                features["lh_area"] = lh_area
-                features["rh_area"] = rh_area
 
                 features["subject_id"] = subject_id
                 features["label"] = label

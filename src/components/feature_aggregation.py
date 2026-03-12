@@ -12,27 +12,41 @@ class FeatureAggregation:
         self.output_dir = Path("artifacts/aggregated_features")
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-    # ----------------------------------
-    # CLEAN SUBJECT ID
-    # ----------------------------------
+    # ------------------------------------------------
+    # NORMALIZE SUBJECT ID COLUMN
+    # ------------------------------------------------
 
-    def clean_subject_id(self, df):
+    def normalize_subject_id(self, df):
 
-        if "subject_id" not in df.columns:
-            raise ValueError("subject_id column missing")
+        possible_cols = ["subject_id", "image_id", "filename", "image", "file", "path"]
+
+        found = None
+
+        for col in possible_cols:
+            if col in df.columns:
+                found = col
+                break
+
+        if found is None:
+            raise ValueError(
+                f"No subject identifier column found. Columns = {df.columns.tolist()}"
+            )
+
+        df = df.rename(columns={found: "subject_id"})
 
         df["subject_id"] = (
             df["subject_id"]
             .astype(str)
             .str.replace(".png", "", regex=False)
             .str.replace(".mgz", "", regex=False)
+            .str.strip()
         )
 
         return df
 
-    # ----------------------------------
-    # MERGE FUNCTION
-    # ----------------------------------
+    # ------------------------------------------------
+    # MERGE SPLIT
+    # ------------------------------------------------
 
     def merge_split(self, split):
 
@@ -44,12 +58,15 @@ class FeatureAggregation:
         texture_df = pd.read_csv(texture_file)
         morph_df = pd.read_csv(morph_file)
 
-        texture_df = self.clean_subject_id(texture_df)
-        morph_df = self.clean_subject_id(morph_df)
+        texture_df = self.normalize_subject_id(texture_df)
+        morph_df = self.normalize_subject_id(morph_df)
 
-        # drop label from morph to avoid duplication
+        # Avoid duplicate label column
         if "label" in morph_df.columns:
             morph_df = morph_df.drop(columns=["label"])
+
+        print("Texture shape:", texture_df.shape)
+        print("Morph shape:", morph_df.shape)
 
         merged_df = texture_df.merge(
             morph_df,
@@ -59,14 +76,17 @@ class FeatureAggregation:
 
         print("Merged shape:", merged_df.shape)
 
+        if merged_df.shape[0] == 0:
+            raise ValueError("Fusion produced EMPTY dataset → subject_id mismatch")
+
         output_file = self.output_dir / f"{split}_features.csv"
         merged_df.to_csv(output_file, index=False)
 
         print(f"{split} aggregated features saved → {output_file}")
 
-    # ----------------------------------
+    # ------------------------------------------------
     # RUN
-    # ----------------------------------
+    # ------------------------------------------------
 
     def run(self):
 

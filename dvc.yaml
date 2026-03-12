@@ -24,6 +24,7 @@ stages:
       - src/pipeline/stage_03_mri_preprocessing.py
       - src/components/mri_preprocessing.py
       - data/interim
+      - data/processed
     outs:
       - data/preprocessed
 
@@ -51,9 +52,17 @@ stages:
       - src/pipeline/stage_05_feature_aggregation.py
       - src/components/feature_aggregation.py
       - artifacts/features
+      - artifacts/morphometric_features
     outs:
       - artifacts/aggregated_features
-
+  feature_scaling:
+    cmd: set PYTHONPATH=. && python -m src.pipeline.stage_05b_feature_scaling
+    deps:
+      - src/pipeline/stage_05b_feature_scaling.py
+      - src/components/feature_scaling.py
+      - artifacts/aggregated_features
+    outs:
+      - artifacts/scaled_features
 
   feature_selection:
     cmd: set PYTHONPATH=. && python -m src.pipeline.stage_06_feature_selection

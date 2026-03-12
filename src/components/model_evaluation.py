@@ -27,50 +27,33 @@ load_dotenv()
 
 class ModelEvaluation:
 
-
     def __init__(self):
 
         self.model_path = Path("artifacts/model_training/best_model.pkl")
-        self.data_path = Path("artifacts/feature_selection/test_selected.csv")
+        self.data_path = Path("artifacts/feature_selection/test_features.csv")
 
         self.output_dir = Path("artifacts/model_evaluation")
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
+        self.local_uri = "file:./mlruns"
         self.remote_uri = "https://dagshub.com/renjini2539thomas/ASD_MLOps_Diagnoser.mlflow"
 
-        self.model_name = "ASD_MRI_Diagnosis_Model"
+        self.model_registry_name = "ASD_MRI_Diagnosis_Model"
 
-    # -------------------------
-    # LOAD DATA
     # -------------------------
 
     def load_data(self):
 
         df = pd.read_csv(self.data_path)
 
-        X = df.drop(["subject", "label"], axis=1)
+        X = df.drop(["subject_id", "label"], axis=1)
         y = df["label"]
 
         return X, y
 
     # -------------------------
-    # EVALUATION
-    # -------------------------
 
-    def run(self):
-
-        model_data = joblib.load(self.model_path)
-
-        model = model_data["model"]
-        feature_names = model_data["features"]
-
-        feature_count = model_data["feature_count"]
-        model_name = model_data["model_name"]
-
-        X_test, y_test = self.load_data()
-
-        # Ensure correct feature order
-        X_test = X_test[feature_names]
+    def compute_metrics(self, model, X_test, y_test):
 
         preds = model.predict(X_test)
 
@@ -81,10 +64,6 @@ class ModelEvaluation:
 
         y_binary = (y_test == "autism").astype(int)
 
-        # -------------------------
-        # METRICS
-        # -------------------------
-
         accuracy = accuracy_score(y_test, preds)
         precision = precision_score(y_test, preds, pos_label="autism", zero_division=0)
         recall = recall_score(y_test, preds, pos_label="autism", zero_division=0)
@@ -92,113 +71,154 @@ class ModelEvaluation:
         balanced_acc = balanced_accuracy_score(y_test, preds)
         auc = roc_auc_score(y_binary, probs)
 
-        # -------------------------
-        # CONFUSION MATRIX
-        # -------------------------
+        return preds, probs, accuracy, precision, recall, f1, balanced_acc, auc
+
+    # -------------------------
+
+    def run(self):
+
+        model_package = joblib.load(self.model_path)
+
+        model = model_package["model"]
+        feature_names = model_package["features"]
+        model_name = model_package["model_name"]
+        dataset_name = model_package["dataset"]
+
+        X_test, y_test = self.load_data()
+
+        X_test = X_test[feature_names]
+
+        preds, probs, accuracy, precision, recall, f1, balanced_acc, auc = \
+            self.compute_metrics(model, X_test, y_test)
+
+        # ---------------- Confusion Matrix ----------------
 
         cm = confusion_matrix(y_test, preds)
 
-        plt.figure(figsize=(6, 5))
+        plt.figure(figsize=(6,5))
+        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+                    xticklabels=["Control","Autism"],
+                    yticklabels=["Control","Autism"])
 
-        sns.heatmap(
-            cm,
-            annot=True,
-            fmt="d",
-            cmap="Blues",
-            xticklabels=["Control", "Autism"],
-            yticklabels=["Control", "Autism"]
-        )
-
+        plt.title("Confusion Matrix")
         plt.xlabel("Predicted")
         plt.ylabel("Actual")
-        plt.title("Confusion Matrix")
 
         cm_path = self.output_dir / "confusion_matrix.png"
         plt.savefig(cm_path)
         plt.close()
 
-        # -------------------------
-        # ROC CURVE
-        # -------------------------
+        # ---------------- ROC Curve ----------------
 
+        y_binary = (y_test == "autism").astype(int)
         fpr, tpr, _ = roc_curve(y_binary, probs)
 
         plt.figure()
-        plt.plot(fpr, tpr, label=f"AUC = {auc:.3f}")
-        plt.plot([0, 1], [0, 1], "--")
-        plt.xlabel("False Positive Rate")
-        plt.ylabel("True Positive Rate")
-        plt.title("ROC Curve")
+        plt.plot(fpr, tpr, label=f"AUC={auc:.3f}")
+        plt.plot([0,1],[0,1],'--')
         plt.legend()
+        plt.title("ROC Curve")
 
         roc_path = self.output_dir / "roc_curve.png"
         plt.savefig(roc_path)
         plt.close()
 
-        # -------------------------
-        # CLASSIFICATION REPORT
-        # -------------------------
+        # ---------------- Classification Report ----------------
 
-        report = classification_report(y_test, preds, zero_division=0)
+        report = classification_report(y_test, preds)
 
         report_path = self.output_dir / "classification_report.txt"
-
-        with open(report_path, "w") as f:
+        with open(report_path,"w") as f:
             f.write(report)
 
-        # -------------------------
-        # MLFLOW LOGGING
-        # -------------------------
+        # ---------------- Metrics CSV ----------------
 
-        mlflow.set_tracking_uri(self.remote_uri)
-        mlflow.set_experiment("ASD_Model_Evaluation")
+        metrics_df = pd.DataFrame([{
+            "dataset": dataset_name,
+            "model": model_name,
+            "accuracy": accuracy,
+            "balanced_accuracy": balanced_acc,
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
+            "auc": auc
+        }])
 
-        with mlflow.start_run(run_name=f"{model_name}_evaluation"):
+        metrics_csv = self.output_dir / "evaluation_metrics.csv"
+        metrics_df.to_csv(metrics_csv, index=False)
+
+        # ================= LOCAL MLFLOW =================
+
+        mlflow.set_tracking_uri(self.local_uri)
+        mlflow.set_experiment("ASD_Model_Evaluation_Local")
+
+        with mlflow.start_run(run_name=model_name):
+
+            mlflow.log_param("dataset", dataset_name)
             mlflow.log_param("model_name", model_name)
-            mlflow.log_param("feature_count", feature_count)
-            mlflow.log_param("features_list", ",".join(feature_names))
+            mlflow.log_param("feature_count", len(feature_names))
 
             mlflow.log_metric("accuracy", accuracy)
             mlflow.log_metric("balanced_accuracy", balanced_acc)
             mlflow.log_metric("precision", precision)
             mlflow.log_metric("recall", recall)
-            mlflow.log_metric("f1_score", f1)
+            mlflow.log_metric("f1", f1)
             mlflow.log_metric("auc", auc)
 
             mlflow.log_artifact(str(cm_path))
             mlflow.log_artifact(str(roc_path))
             mlflow.log_artifact(str(report_path))
-            mlflow.log_artifact("artifacts/model_training/feature_subset_experiments.csv")
+            mlflow.log_artifact(str(metrics_csv))
+
+            mlflow.sklearn.log_model(model, "model")
+
+        # ================= DAGSHUB MLFLOW =================
+
+        mlflow.set_tracking_uri(self.remote_uri)
+        mlflow.set_experiment("ASD_Model_Evaluation_Remote")
+
+        with mlflow.start_run(run_name=model_name):
+
+            mlflow.log_param("dataset", dataset_name)
+            mlflow.log_param("model_name", model_name)
+            mlflow.log_param("feature_count", len(feature_names))
+
+            mlflow.log_metric("accuracy", accuracy)
+            mlflow.log_metric("balanced_accuracy", balanced_acc)
+            mlflow.log_metric("precision", precision)
+            mlflow.log_metric("recall", recall)
+            mlflow.log_metric("f1", f1)
+            mlflow.log_metric("auc", auc)
+
+            mlflow.log_artifact(str(cm_path))
+            mlflow.log_artifact(str(roc_path))
+            mlflow.log_artifact(str(report_path))
+            mlflow.log_artifact(str(metrics_csv))
+
             mlflow.sklearn.log_model(
                 model,
-                name="model",
-                registered_model_name=self.model_name
+                artifact_path="model",
+                registered_model_name=self.model_registry_name
             )
 
-        # -------------------------
-        # MODEL REGISTRY
-        # -------------------------
+        # ================= MODEL REGISTRY =================
 
         client = MlflowClient(tracking_uri=self.remote_uri)
 
-        latest_versions = client.get_latest_versions(self.model_name)
+        latest_versions = client.get_latest_versions(self.model_registry_name)
 
         if latest_versions:
-            latest_version = latest_versions[0].version
+            version = latest_versions[0].version
 
             client.set_registered_model_alias(
-                name=self.model_name,
+                name=self.model_registry_name,
                 alias="staging",
-                version=latest_version
+                version=version
             )
 
-            print(f"Model v{latest_version} aliased as 'staging'")
+            print(f"Model version {version} set to STAGING")
 
         print("\nModel Evaluation Completed")
-        print(f"Accuracy  : {accuracy:.4f}")
-        print(f"Precision : {precision:.4f}")
-        print(f"Recall    : {recall:.4f}")
-        print(f"F1 Score  : {f1:.4f}")
-        print(f"AUC       : {auc:.4f}")
-        print("Model registered in MLflow Model Registry.")
-
+        print("Accuracy:", accuracy)
+        print("F1:", f1)
+        print("AUC:", auc)

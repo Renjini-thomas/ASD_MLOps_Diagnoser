@@ -9,7 +9,7 @@ class DataPreparation:
     def __init__(self):
 
         self.pheno_file = Path("data/raw/phenotypic.csv")
-        self.mri_dir = Path("data/raw/brain_mgz")
+        self.mri_dir = Path("data/raw/abide_freesurfer")
 
         self.interim_dir = Path("data/interim")
         self.processed_dir = Path("data/processed")

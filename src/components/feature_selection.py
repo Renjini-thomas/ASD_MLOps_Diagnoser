@@ -290,128 +290,206 @@
 
 #         train_selected.to_csv(self.output_dir / "train_selected.csv", index=False)
 #         test_selected.to_csv(self.output_dir / "test_selected.csv", index=False)
+# import pandas as pd
+# import numpy as np
+# from pathlib import Path
+# from sklearn.feature_selection import mutual_info_classif
+
+
+# class FeatureSelection:
+
+#     def __init__(self):
+
+#         self.input_dir = Path("artifacts/aggregated_features")
+#         self.output_dir = Path("artifacts/feature_selection")
+
+#         self.output_dir.mkdir(parents=True, exist_ok=True)
+
+#         self.corr_threshold = 0.90
+
+
+#     # ------------------------------
+#     # Remove Redundant Features
+#     # ------------------------------
+#     def remove_correlated_features(self, X):
+
+#         corr_matrix = X.corr().abs()
+
+#         upper = corr_matrix.where(
+#             np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)
+#         )
+
+#         to_drop = [
+#             col for col in upper.columns
+#             if any(upper[col] > self.corr_threshold)
+#         ]
+
+#         print(f"Removing {len(to_drop)} highly correlated features")
+
+#         return X.drop(columns=to_drop), to_drop
+
+
+#     # ------------------------------
+#     # Mutual Information Ranking
+#     # ------------------------------
+#     def mutual_information_ranking(self, X, y):
+
+#         y_numeric = y.map({"control": 0, "autism": 1})
+
+#         mi_scores = mutual_info_classif(
+#             X,
+#             y_numeric,
+#             random_state=42
+#         )
+
+#         ranking_df = pd.DataFrame({
+#             "feature": X.columns,
+#             "mi_score": mi_scores
+#         })
+
+#         ranking_df = ranking_df.sort_values(
+#             by="mi_score",
+#             ascending=False
+#         )
+
+#         print("\nTop 10 MI Features:")
+#         print(ranking_df.head(10))
+
+#         return ranking_df
+
+
+#     # ------------------------------
+#     # RUN
+#     # ------------------------------
+#     def run(self):
+
+#         train_df = pd.read_csv(self.input_dir / "train_aggregated.csv")
+#         test_df = pd.read_csv(self.input_dir / "test_aggregated.csv")
+
+#         X_train = train_df.drop(["subject", "label"], axis=1)
+#         y_train = train_df["label"]
+
+#         # STEP 1 → Correlation Filtering
+#         X_filtered, dropped = self.remove_correlated_features(X_train)
+
+#         print(f"Remaining features after filtering: {X_filtered.shape[1]}")
+
+#         # STEP 2 → Mutual Information Ranking
+#         ranking_df = self.mutual_information_ranking(
+#             X_filtered,
+#             y_train
+#         )
+
+#         ranking_df.to_csv(
+#             self.output_dir / "feature_ranking.csv",
+#             index=False
+#         )
+
+#         selected_features = ranking_df["feature"].tolist()
+
+#         pd.DataFrame({"feature": selected_features}).to_csv(
+#             self.output_dir / "selected_features.csv",
+#             index=False
+#         )
+
+#         pd.DataFrame({"dropped_feature": dropped}).to_csv(
+#             self.output_dir / "dropped_features.csv",
+#             index=False
+#         )
+
+#         # STEP 3 → Save filtered datasets
+#         train_selected = train_df[
+#             ["subject"] + selected_features + ["label"]
+#         ]
+
+#         test_selected = test_df[
+#             ["subject"] + selected_features + ["label"]
+#         ]
+
+#         train_selected.to_csv(
+#             self.output_dir / "train_selected.csv",
+#             index=False
+#         )
+
+#         test_selected.to_csv(
+#             self.output_dir / "test_selected.csv",
+#             index=False
+#         )
 import pandas as pd
-import numpy as np
 from pathlib import Path
-from sklearn.feature_selection import mutual_info_classif
+from sklearn.ensemble import RandomForestClassifier
 
 
 class FeatureSelection:
 
     def __init__(self):
 
-        self.input_dir = Path("artifacts/aggregated_features")
+        self.input_dir = Path("artifacts/scaled_features")
         self.output_dir = Path("artifacts/feature_selection")
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        self.corr_threshold = 0.90
+        self.top_k = 80   # ⭐ YOU CAN CHANGE
 
-
-    # ------------------------------
-    # Remove Redundant Features
-    # ------------------------------
-    def remove_correlated_features(self, X):
-
-        corr_matrix = X.corr().abs()
-
-        upper = corr_matrix.where(
-            np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)
-        )
-
-        to_drop = [
-            col for col in upper.columns
-            if any(upper[col] > self.corr_threshold)
-        ]
-
-        print(f"Removing {len(to_drop)} highly correlated features")
-
-        return X.drop(columns=to_drop), to_drop
-
-
-    # ------------------------------
-    # Mutual Information Ranking
-    # ------------------------------
-    def mutual_information_ranking(self, X, y):
-
-        y_numeric = y.map({"control": 0, "autism": 1})
-
-        mi_scores = mutual_info_classif(
-            X,
-            y_numeric,
-            random_state=42
-        )
-
-        ranking_df = pd.DataFrame({
-            "feature": X.columns,
-            "mi_score": mi_scores
-        })
-
-        ranking_df = ranking_df.sort_values(
-            by="mi_score",
-            ascending=False
-        )
-
-        print("\nTop 10 MI Features:")
-        print(ranking_df.head(10))
-
-        return ranking_df
-
-
-    # ------------------------------
-    # RUN
-    # ------------------------------
     def run(self):
 
-        train_df = pd.read_csv(self.input_dir / "train_aggregated.csv")
-        test_df = pd.read_csv(self.input_dir / "test_aggregated.csv")
+        print("Loading aggregated features...")
 
-        X_train = train_df.drop(["subject", "label"], axis=1)
+        train_df = pd.read_csv(self.input_dir / "train_features.csv")
+        test_df = pd.read_csv(self.input_dir / "test_features.csv")
+
+        X_train = train_df.drop(["subject_id", "label"], axis=1)
         y_train = train_df["label"]
 
-        # STEP 1 → Correlation Filtering
-        X_filtered, dropped = self.remove_correlated_features(X_train)
+        X_test = test_df.drop(["subject_id", "label"], axis=1)
+        y_test = test_df["label"]
 
-        print(f"Remaining features after filtering: {X_filtered.shape[1]}")
+        print("Training RandomForest for feature ranking...")
 
-        # STEP 2 → Mutual Information Ranking
-        ranking_df = self.mutual_information_ranking(
-            X_filtered,
-            y_train
+        rf = RandomForestClassifier(
+            n_estimators=200,
+            random_state=42,
+            n_jobs=-1
         )
 
-        ranking_df.to_csv(
-            self.output_dir / "feature_ranking.csv",
-            index=False
+        rf.fit(X_train, y_train)
+
+        importance = pd.Series(
+            rf.feature_importances_,
+            index=X_train.columns
         )
 
-        selected_features = ranking_df["feature"].tolist()
+        ranked_features = importance.sort_values(ascending=False)
 
-        pd.DataFrame({"feature": selected_features}).to_csv(
-            self.output_dir / "selected_features.csv",
-            index=False
+        print("Top features:\n", ranked_features.head())
+
+        selected_features = ranked_features.head(self.top_k).index
+
+        X_train_sel = X_train[selected_features]
+        X_test_sel = X_test[selected_features]
+
+        train_selected = pd.concat(
+            [train_df[["subject_id", "label"]], X_train_sel],
+            axis=1
         )
 
-        pd.DataFrame({"dropped_feature": dropped}).to_csv(
-            self.output_dir / "dropped_features.csv",
-            index=False
+        test_selected = pd.concat(
+            [test_df[["subject_id", "label"]], X_test_sel],
+            axis=1
         )
-
-        # STEP 3 → Save filtered datasets
-        train_selected = train_df[
-            ["subject"] + selected_features + ["label"]
-        ]
-
-        test_selected = test_df[
-            ["subject"] + selected_features + ["label"]
-        ]
 
         train_selected.to_csv(
-            self.output_dir / "train_selected.csv",
+            self.output_dir / "train_features.csv",
             index=False
         )
 
         test_selected.to_csv(
-            self.output_dir / "test_selected.csv",
+            self.output_dir / "test_features.csv",
             index=False
         )
+
+        ranked_features.to_csv(
+            self.output_dir / "feature_ranking.csv"
+        )
+
+        print("Feature selection completed")
