@@ -418,6 +418,7 @@
 import pandas as pd
 from pathlib import Path
 from sklearn.ensemble import RandomForestClassifier
+import joblib
 
 
 class FeatureSelection:
@@ -429,7 +430,7 @@ class FeatureSelection:
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        self.top_k = 80   # ⭐ YOU CAN CHANGE
+        self.top_k = 20  
 
     def run(self):
 
@@ -464,6 +465,7 @@ class FeatureSelection:
         print("Top features:\n", ranked_features.head())
 
         selected_features = ranked_features.head(self.top_k).index
+        joblib.dump(selected_features, self.output_dir / "selected_features.pkl")
 
         X_train_sel = X_train[selected_features]
         X_test_sel = X_test[selected_features]
@@ -479,12 +481,12 @@ class FeatureSelection:
         )
 
         train_selected.to_csv(
-            self.output_dir / "train_features.csv",
+            self.output_dir / "train_selected.csv",
             index=False
         )
 
         test_selected.to_csv(
-            self.output_dir / "test_features.csv",
+            self.output_dir / "test_selected.csv",
             index=False
         )
 
@@ -492,4 +494,190 @@ class FeatureSelection:
             self.output_dir / "feature_ranking.csv"
         )
 
-        print("Feature selection completed")
+#         print("Feature selection completed")
+# import pandas as pd
+# from pathlib import Path
+
+# from sklearn.feature_selection import RFECV
+# from sklearn.linear_model import LogisticRegression
+# from sklearn.model_selection import StratifiedKFold
+
+
+# class FeatureSelection:
+
+#     def __init__(self):
+
+#         self.input_dir = Path("artifacts/scaled_features")
+#         self.output_dir = Path("artifacts/feature_selection")
+
+#         self.output_dir.mkdir(parents=True, exist_ok=True)
+
+#     # ------------------------------------------------
+
+#     def run(self):
+
+#         print("Loading scaled hybrid features...")
+
+#         train_df = pd.read_csv(self.input_dir / "train_features.csv")
+#         test_df = pd.read_csv(self.input_dir / "test_features.csv")
+
+#         X_train = train_df.drop(["subject_id", "label"], axis=1)
+#         y_train = train_df["label"]
+
+#         X_test = test_df.drop(["subject_id", "label"], axis=1)
+#         y_test = test_df["label"]
+
+#         print("Running RFECV feature selection...")
+
+#         estimator = LogisticRegression(
+#             max_iter=2000,
+#             class_weight="balanced",
+#             solver="liblinear"
+#         )
+
+#         cv = StratifiedKFold(
+#             n_splits=5,
+#             shuffle=True,
+#             random_state=42
+#         )
+
+#         selector = RFECV(
+#             estimator=estimator,
+#             step=1,
+#             cv=cv,
+#             scoring="f1_macro",
+#             n_jobs=-1,
+#             min_features_to_select=10
+#         )
+
+#         selector.fit(X_train, y_train)
+
+#         selected_features = X_train.columns[selector.support_]
+
+#         print("Optimal number of features:", selector.n_features_)
+#         print("Selected features:", list(selected_features))
+
+#         # ---------------- SAVE RANKING ----------------
+
+#         ranking_df = pd.DataFrame({
+#             "feature": X_train.columns,
+#             "rank": selector.ranking_
+#         }).sort_values("rank")
+
+#         ranking_df.to_csv(
+#             self.output_dir / "feature_ranking.csv",
+#             index=False
+#         )
+
+#         # ---------------- SAVE SELECTED DATASET ----------------
+
+#         X_train_sel = X_train[selected_features]
+#         X_test_sel = X_test[selected_features]
+
+#         train_selected = pd.concat(
+#             [train_df[["subject_id", "label"]], X_train_sel],
+#             axis=1
+#         )
+
+#         test_selected = pd.concat(
+#             [test_df[["subject_id", "label"]], X_test_sel],
+#             axis=1
+#         )
+
+#         train_selected.to_csv(
+#             self.output_dir / "train_selected.csv",
+#             index=False
+#         )
+
+#         test_selected.to_csv(
+#             self.output_dir / "test_selected.csv",
+#             index=False
+#         )
+
+#         print("RFECV Feature Selection completed successfully")
+# import pandas as pd
+# from pathlib import Path
+
+# from sklearn.feature_selection import RFECV
+# from sklearn.svm import SVC
+
+
+# class FeatureSelection:
+
+#     def __init__(self):
+
+#         self.input_dir = Path("artifacts/scaled_features")
+#         self.output_dir = Path("artifacts/feature_selection")
+
+#         self.output_dir.mkdir(parents=True, exist_ok=True)
+
+#     def run(self):
+
+#         print("Loading scaled features...")
+
+#         train_df = pd.read_csv(self.input_dir / "train_features.csv")
+#         test_df = pd.read_csv(self.input_dir / "test_features.csv")
+
+#         X_train = train_df.drop(["subject_id", "label"], axis=1)
+#         y_train = train_df["label"]
+
+#         X_test = test_df.drop(["subject_id", "label"], axis=1)
+#         y_test = test_df["label"]
+
+#         print("Running RFECV feature selection...")
+
+#         estimator = SVC(kernel="linear")
+
+#         selector = RFECV(
+#             estimator=estimator,
+#             step=1,
+#             cv=5,
+#             scoring="accuracy",
+#             n_jobs=-1
+#         )
+
+#         selector.fit(X_train, y_train)
+
+#         selected_features = X_train.columns[selector.support_]
+
+#         print("Optimal number of features:", selector.n_features_)
+#         print("Selected features:", list(selected_features))
+
+#         # ⭐ Transform datasets
+#         X_train_sel = X_train[selected_features]
+#         X_test_sel = X_test[selected_features]
+
+#         # ⭐ Save selected datasets
+#         train_selected = pd.concat(
+#             [train_df[["subject_id", "label"]], X_train_sel],
+#             axis=1
+#         )
+
+#         test_selected = pd.concat(
+#             [test_df[["subject_id", "label"]], X_test_sel],
+#             axis=1
+#         )
+
+#         train_selected.to_csv(
+#             self.output_dir / "train_selected.csv",
+#             index=False
+#         )
+
+#         test_selected.to_csv(
+#             self.output_dir / "test_selected.csv",
+#             index=False
+#         )
+
+#         # ⭐ Save ranking info
+#         ranking_df = pd.DataFrame({
+#             "feature": X_train.columns,
+#             "ranking": selector.ranking_,
+#             "selected": selector.support_
+#         })
+
+#         ranking_df.to_csv(
+#             self.output_dir / "feature_ranking_rfecv.csv",
+#             index=False
+#         )
+
+#         print("Feature selection completed successfully")

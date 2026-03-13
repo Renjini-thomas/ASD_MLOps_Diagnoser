@@ -8,7 +8,7 @@ class FeatureScaling:
 
     def __init__(self):
 
-        self.input_dir = Path("artifacts/aggregated_features")
+        self.input_dir = Path("artifacts/features")
         self.output_dir = Path("artifacts/scaled_features")
 
         self.output_dir.mkdir(parents=True, exist_ok=True)

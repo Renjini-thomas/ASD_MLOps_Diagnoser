@@ -6,15 +6,15 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from sklearn.metrics import (
-confusion_matrix,
-classification_report,
-roc_curve,
-roc_auc_score,
-accuracy_score,
-precision_score,
-recall_score,
-f1_score,
-balanced_accuracy_score
+    confusion_matrix,
+    classification_report,
+    roc_curve,
+    roc_auc_score,
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    balanced_accuracy_score
 )
 
 import mlflow
@@ -22,15 +22,15 @@ import mlflow.sklearn
 from mlflow.tracking import MlflowClient
 
 from dotenv import load_dotenv
-
 load_dotenv()
+
 
 class ModelEvaluation:
 
     def __init__(self):
 
         self.model_path = Path("artifacts/model_training/best_model.pkl")
-        self.data_path = Path("artifacts/feature_selection/test_features.csv")
+        self.data_path = Path("artifacts/feature_selection/test_selected.csv")
 
         self.output_dir = Path("artifacts/model_evaluation")
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -40,7 +40,10 @@ class ModelEvaluation:
 
         self.model_registry_name = "ASD_MRI_Diagnosis_Model"
 
-    # -------------------------
+        # MEDICAL SAFETY THRESHOLD
+        self.min_recall_required = 0.60
+
+    # ------------------------------------------------
 
     def load_data(self):
 
@@ -51,15 +54,13 @@ class ModelEvaluation:
 
         return X, y
 
-    # -------------------------
+    # ------------------------------------------------
 
     def compute_metrics(self, model, X_test, y_test):
 
         preds = model.predict(X_test)
 
-        classes = model.classes_
-        autism_index = list(classes).index("autism")
-
+        autism_index = list(model.classes_).index("autism")
         probs = model.predict_proba(X_test)[:, autism_index]
 
         y_binary = (y_test == "autism").astype(int)
@@ -73,7 +74,61 @@ class ModelEvaluation:
 
         return preds, probs, accuracy, precision, recall, f1, balanced_acc, auc
 
-    # -------------------------
+    # ------------------------------------------------
+
+    def promote_if_better(self, client, new_run_id, recall, f1):
+
+        try:
+            staging = client.get_model_version_by_alias(
+                self.model_registry_name,
+                "staging"
+            )
+
+            prev_run = client.get_run(staging.run_id)
+
+            prev_recall = prev_run.data.metrics.get("recall", 0)
+            prev_f1 = prev_run.data.metrics.get("f1", 0)
+
+            print("\nPrevious staging Recall:", prev_recall)
+            print("Previous staging F1:", prev_f1)
+
+            if recall < self.min_recall_required:
+                print("\nNew model rejected ❌ (recall below clinical threshold)")
+                return
+
+            if (recall > prev_recall) or (
+                recall == prev_recall and f1 > prev_f1
+            ):
+                latest = client.search_model_versions(
+                    f"name='{self.model_registry_name}'"
+                )[0]
+
+                client.set_registered_model_alias(
+                    name=self.model_registry_name,
+                    alias="staging",
+                    version=latest.version
+                )
+
+                print(f"\nModel promoted to STAGING ✅ (version {latest.version})")
+
+            else:
+                print("\nModel NOT promoted (not better than current staging)")
+
+        except Exception:
+
+            latest = client.search_model_versions(
+                f"name='{self.model_registry_name}'"
+            )[0]
+
+            client.set_registered_model_alias(
+                name=self.model_registry_name,
+                alias="staging",
+                version=latest.version
+            )
+
+            print("\nNo previous staging model → First model set as STAGING ✅")
+
+    # ------------------------------------------------
 
     def run(self):
 
@@ -85,30 +140,23 @@ class ModelEvaluation:
         dataset_name = model_package["dataset"]
 
         X_test, y_test = self.load_data()
-
         X_test = X_test[feature_names]
 
         preds, probs, accuracy, precision, recall, f1, balanced_acc, auc = \
             self.compute_metrics(model, X_test, y_test)
 
-        # ---------------- Confusion Matrix ----------------
-
-        cm = confusion_matrix(y_test, preds)
+        labels = model.classes_
+        cm = confusion_matrix(y_test, preds, labels=labels)
 
         plt.figure(figsize=(6,5))
-        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
-                    xticklabels=["Control","Autism"],
-                    yticklabels=["Control","Autism"])
-
-        plt.title("Confusion Matrix")
-        plt.xlabel("Predicted")
-        plt.ylabel("Actual")
+        sns.heatmap(cm, annot=True, fmt="d",
+                    xticklabels=labels,
+                    yticklabels=labels,
+                    cmap="Blues")
 
         cm_path = self.output_dir / "confusion_matrix.png"
         plt.savefig(cm_path)
         plt.close()
-
-        # ---------------- ROC Curve ----------------
 
         y_binary = (y_test == "autism").astype(int)
         fpr, tpr, _ = roc_curve(y_binary, probs)
@@ -117,71 +165,19 @@ class ModelEvaluation:
         plt.plot(fpr, tpr, label=f"AUC={auc:.3f}")
         plt.plot([0,1],[0,1],'--')
         plt.legend()
-        plt.title("ROC Curve")
 
         roc_path = self.output_dir / "roc_curve.png"
         plt.savefig(roc_path)
         plt.close()
 
-        # ---------------- Classification Report ----------------
-
-        report = classification_report(y_test, preds)
-
         report_path = self.output_dir / "classification_report.txt"
         with open(report_path,"w") as f:
-            f.write(report)
-
-        # ---------------- Metrics CSV ----------------
-
-        metrics_df = pd.DataFrame([{
-            "dataset": dataset_name,
-            "model": model_name,
-            "accuracy": accuracy,
-            "balanced_accuracy": balanced_acc,
-            "precision": precision,
-            "recall": recall,
-            "f1": f1,
-            "auc": auc
-        }])
-
-        metrics_csv = self.output_dir / "evaluation_metrics.csv"
-        metrics_df.to_csv(metrics_csv, index=False)
-
-        # ================= LOCAL MLFLOW =================
-
-        mlflow.set_tracking_uri(self.local_uri)
-        mlflow.set_experiment("ASD_Model_Evaluation_Local")
-
-        with mlflow.start_run(run_name=model_name):
-
-            mlflow.log_param("dataset", dataset_name)
-            mlflow.log_param("model_name", model_name)
-            mlflow.log_param("feature_count", len(feature_names))
-
-            mlflow.log_metric("accuracy", accuracy)
-            mlflow.log_metric("balanced_accuracy", balanced_acc)
-            mlflow.log_metric("precision", precision)
-            mlflow.log_metric("recall", recall)
-            mlflow.log_metric("f1", f1)
-            mlflow.log_metric("auc", auc)
-
-            mlflow.log_artifact(str(cm_path))
-            mlflow.log_artifact(str(roc_path))
-            mlflow.log_artifact(str(report_path))
-            mlflow.log_artifact(str(metrics_csv))
-
-            mlflow.sklearn.log_model(model, "model")
-
-        # ================= DAGSHUB MLFLOW =================
+            f.write(classification_report(y_test, preds))
 
         mlflow.set_tracking_uri(self.remote_uri)
-        mlflow.set_experiment("ASD_Model_Evaluation_Remote")
+        mlflow.set_experiment("ASD_Model_Evaluation")
 
-        with mlflow.start_run(run_name=model_name):
-
-            mlflow.log_param("dataset", dataset_name)
-            mlflow.log_param("model_name", model_name)
-            mlflow.log_param("feature_count", len(feature_names))
+        with mlflow.start_run(run_name=model_name) as run:
 
             mlflow.log_metric("accuracy", accuracy)
             mlflow.log_metric("balanced_accuracy", balanced_acc)
@@ -193,7 +189,6 @@ class ModelEvaluation:
             mlflow.log_artifact(str(cm_path))
             mlflow.log_artifact(str(roc_path))
             mlflow.log_artifact(str(report_path))
-            mlflow.log_artifact(str(metrics_csv))
 
             mlflow.sklearn.log_model(
                 model,
@@ -201,24 +196,13 @@ class ModelEvaluation:
                 registered_model_name=self.model_registry_name
             )
 
-        # ================= MODEL REGISTRY =================
+            run_id = run.info.run_id
 
         client = MlflowClient(tracking_uri=self.remote_uri)
 
-        latest_versions = client.get_latest_versions(self.model_registry_name)
+        self.promote_if_better(client, run_id, recall, f1)
 
-        if latest_versions:
-            version = latest_versions[0].version
-
-            client.set_registered_model_alias(
-                name=self.model_registry_name,
-                alias="staging",
-                version=version
-            )
-
-            print(f"Model version {version} set to STAGING")
-
-        print("\nModel Evaluation Completed")
-        print("Accuracy:", accuracy)
+        print("\nEvaluation Completed")
+        print("Recall:", recall)
         print("F1:", f1)
         print("AUC:", auc)

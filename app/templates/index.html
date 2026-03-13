@@ -1,67 +1,557 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ASD Inference — Diagnostic Tool</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --border:    #2a3140;
+      --text:      #e6edf3;
+      --muted:     #7d8ea8;
+      --accent:    #f0a500;
+      --accent-lo: rgba(240,165,0,.12);
+      --green:     #3fb950;
+      --green-lo:  rgba(63,185,80,.12);
+      --red:       #f85149;
+      --red-lo:    rgba(248,81,73,.12);
+      --radius:    12px;
+    }
 
-<title>ASD MRI Diagnoser</title>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-<style>
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
 
-body{
-font-family: Arial;
-text-align:center;
-margin-top:100px;
-}
+    /* ── Header ─────────────────────────────────────────── */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 0 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo-icon {
+      width: 28px; height: 28px;
+      background: var(--accent);
+      border-radius: 6px;
+      display: grid;
+      place-items: center;
+    }
+    .logo-icon svg { width:16px; height:16px; fill:#0d1117; }
+    .logo-text {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: .03em;
+    }
+    .logo-text span { color: var(--accent); }
+    .badge {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 3px 10px;
+    }
 
-.upload-box{
-border:2px dashed #aaa;
-padding:30px;
-width:400px;
-margin:auto;
-}
+    /* ── Layout ──────────────────────────────────────────── */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 0;
+      max-width: 1100px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 48px 24px;
+      align-items: start;
+    }
 
-button{
-padding:10px 20px;
-margin-top:10px;
-}
+    @media (max-width: 760px) {
+      main { grid-template-columns: 1fr; padding: 24px 16px; }
+      header { padding: 0 16px; }
+    }
 
-.result{
-margin-top:30px;
-font-size:20px;
-}
+    /* ── Left column ─────────────────────────────────────── */
+    .left { padding-right: 48px; }
+    .page-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 32px;
+      font-weight: 800;
+      line-height: 1.15;
+      margin-bottom: 8px;
+    }
+    .page-title em { color: var(--accent); font-style: normal; }
+    .page-sub {
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 300;
+      line-height: 1.6;
+      max-width: 420px;
+      margin-bottom: 36px;
+    }
 
-</style>
+    /* ── Card ────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 20px;
+    }
+    .card-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
 
+    /* ── Drop zone ───────────────────────────────────────── */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 40px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      position: relative;
+    }
+    .drop-zone:hover,
+    .drop-zone.dragover {
+      border-color: var(--accent);
+      background: var(--accent-lo);
+    }
+    .drop-zone input[type="file"] {
+      position: absolute; inset: 0;
+      opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .drop-icon {
+      width: 44px; height: 44px;
+      background: var(--accent-lo);
+      border-radius: 50%;
+      margin: 0 auto 14px;
+      display: grid; place-items: center;
+    }
+    .drop-icon svg { width:20px; height:20px; stroke: var(--accent); fill:none; stroke-width:1.8; }
+    .drop-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 600;
+      font-size: 15px;
+      margin-bottom: 4px;
+    }
+    .drop-hint { font-size: 12px; color: var(--muted); }
+    .file-name {
+      margin-top: 14px;
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: var(--accent);
+      display: none;
+    }
+    .file-name.visible { display: block; }
+
+    /* ── Submit btn ──────────────────────────────────────── */
+    .btn-run {
+      width: 100%;
+      margin-top: 18px;
+      padding: 13px;
+      background: var(--accent);
+      color: #0d1117;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: .04em;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: opacity .15s, transform .1s;
+    }
+    .btn-run:hover { opacity: .88; }
+    .btn-run:active { transform: scale(.98); }
+    .btn-run svg { width:16px; height:16px; stroke:#0d1117; fill:none; stroke-width:2; }
+
+    /* ── Right column — result panel ─────────────────────── */
+    .panel {
+      position: sticky;
+      top: 48px;
+    }
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      animation: fadeUp .35s ease both;
+    }
+    @keyframes fadeUp {
+      from { opacity:0; transform: translateY(10px); }
+      to   { opacity:1; transform: translateY(0); }
+    }
+    .result-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .result-header svg { width:16px; height:16px; stroke:var(--muted); fill:none; stroke-width:2; }
+    .result-header-text {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .result-body { padding: 28px 24px; }
+
+    /* verdict */
+    .verdict {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 28px;
+      margin-bottom: 6px;
+    }
+    .verdict.positive { color: var(--red); }
+    .verdict.negative { color: var(--green); }
+
+    .verdict-sub {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 28px;
+    }
+
+    /* probability bar */
+    .prob-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .prob-label strong {
+      font-family: 'DM Mono', monospace;
+      color: var(--text);
+      font-size: 14px;
+    }
+    .bar-track {
+      height: 8px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    /* FIX 1: width read from CSS custom property set on parent — no Jinja in style= on this element */
+    .bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 1s cubic-bezier(.4,0,.2,1);
+      background: var(--accent);
+      width: var(--bar-width, 0%);
+    }
+    .bar-fill.high { background: var(--red); }
+    .bar-fill.low  { background: var(--green); }
+
+    /* stat row */
+    .stat-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .stat-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .stat-key {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      margin-bottom: 6px;
+    }
+    .stat-val {
+      font-family: 'Syne', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    /* FIX 2: prediction color via plain CSS classes — no Jinja inside style= */
+    .val-positive { color: var(--red); }
+    .val-negative { color: var(--green); }
+
+    /* error */
+    .error-card {
+      background: rgba(248,81,73,.08);
+      border: 1px solid rgba(248,81,73,.3);
+      border-radius: var(--radius);
+      padding: 18px 22px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      animation: fadeUp .3s ease both;
+    }
+    .error-card svg { width:18px; height:18px; stroke:var(--red); fill:none; stroke-width:2; flex-shrink:0; margin-top:1px; }
+    .error-title { font-size: 13px; font-weight: 500; color: var(--red); margin-bottom: 4px; }
+    .error-msg   { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+    /* idle state */
+    .idle-card {
+      background: var(--surface);
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 40px 24px;
+      text-align: center;
+    }
+    .idle-icon {
+      width: 48px; height: 48px;
+      background: var(--bg);
+      border-radius: 50%;
+      margin: 0 auto 16px;
+      display: grid; place-items: center;
+    }
+    .idle-icon svg { width:22px; height:22px; stroke:var(--muted); fill:none; stroke-width:1.5; }
+    .idle-title { font-family:'Syne',sans-serif; font-weight:600; font-size:15px; margin-bottom:6px; }
+    .idle-hint  { font-size:12px; color:var(--muted); }
+
+    /* ── How it works ────────────────────────────────────── */
+    .steps { display: flex; flex-direction: column; gap: 14px; }
+    .step  { display: flex; gap: 14px; align-items: flex-start; }
+    .step-num {
+      width: 26px; height: 26px;
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      display: grid; place-items: center;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+    .step-text { font-size: 13px; color: var(--muted); line-height: 1.55; padding-top: 3px; }
+    .step-text strong { color: var(--text); font-weight: 500; }
+
+    /* ── Footer ──────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 16px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--muted);
+      font-family: 'DM Mono', monospace;
+    }
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
 </head>
-
 <body>
 
-<h2>Autism Spectrum Disorder Diagnoser</h2>
+<!-- ── Header ─────────────────────────────────────────────── -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+    </div>
+    <span class="logo-text">ASD<span>Scan</span></span>
+  </div>
+  <span class="badge">v1.0 · inference</span>
+</header>
 
-<form method="POST" enctype="multipart/form-data">
+<!-- ── Main ───────────────────────────────────────────────── -->
+<main>
 
-<div class="upload-box">
+  <!-- Left: upload form -->
+  <div class="left">
+    <h1 class="page-title">Autism Spectrum<br>Disorder <em>Detection</em></h1>
+    <p class="page-sub">
+      Upload a patient data file to run the inference pipeline and receive
+      an ASD likelihood prediction with confidence score.
+    </p>
 
-<input type="file" name="file" required>
+    <!-- Upload card -->
+    <div class="card">
+      <div class="card-label">01 — Upload Data File</div>
+      <form method="POST" enctype="multipart/form-data" id="upload-form">
+        <div class="drop-zone" id="drop-zone">
+          <input type="file" name="file" id="file-input" required>
+          <div class="drop-icon">
+            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </div>
+          <div class="drop-title">Drop your file here</div>
+          <div class="drop-hint">or click to browse — CSV, JSON, or structured data</div>
+          <div class="file-name" id="file-name"></div>
+        </div>
 
-<br><br>
+        <button type="submit" class="btn-run" id="submit-btn">
+          <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Run Inference
+        </button>
+      </form>
+    </div>
 
-<button type="submit">Predict</button>
+    <!-- How it works -->
+    <div class="card">
+      <div class="card-label">How it works</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-text"><strong>Upload</strong> your structured patient data file in CSV or JSON format.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-text">The <strong>inference pipeline</strong> preprocesses and runs the trained model.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-text">Receive a binary <strong>ASD prediction</strong> along with a confidence probability score.</div>
+        </div>
+      </div>
+    </div>
 
-</div>
+    <!-- Error message -->
+    {% if error %}
+    <div class="error-card">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div>
+        <div class="error-title">Inference Error</div>
+        <div class="error-msg">{{ error }}</div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
 
-</form>
+  <!-- Right: result panel -->
+  <div class="panel">
 
-{% if prediction %}
+    {% if prediction is not none %}
+    <!-- Result card -->
+    <div class="result-card">
+      <div class="result-header">
+        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <span class="result-header-text">Diagnostic Result</span>
+      </div>
+      <div class="result-body">
 
-<div class="result">
+        {% set pct = (probability * 100) | round(1) %}
+        {% set is_positive = prediction == 1 or prediction == "ASD" or prediction == "Positive" or prediction == True %}
 
-<h3>Prediction: {{ prediction }}</h3>
+        <div class="verdict {{ 'positive' if is_positive else 'negative' }}">
+          {{ "ASD Detected" if is_positive else "ASD Not Detected" }}
+        </div>
+        <div class="verdict-sub">
+          {{ "Positive" if is_positive else "Negative" }} — Confidence {{ pct }}%
+        </div>
 
-<p>Confidence: {{ probability }}</p>
+        <div class="prob-label">
+          <span>Confidence Score</span>
+          <strong>{{ pct }}%</strong>
+        </div>
 
-</div>
+        <!-- FIX 1: --bar-width set on the track (parent), bar-fill reads it via var() -->
+        <div class="bar-track" style="--bar-width: {{ pct }}%">
+          <div class="bar-fill {{ 'high' if is_positive else 'low' }}"></div>
+        </div>
 
-{% endif %}
+        <div class="stat-row">
+          <div class="stat-box">
+            <div class="stat-key">Prediction</div>
+            <!-- FIX 2: color applied via class, not inline style= with Jinja -->
+            <div class="stat-val {{ 'val-positive' if is_positive else 'val-negative' }}">
+              {{ "Positive" if is_positive else "Negative" }}
+            </div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-key">Probability</div>
+            <div class="stat-val">{{ "%.4f"|format(probability) }}</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    {% elif not error %}
+    <!-- Idle state -->
+    <div class="idle-card">
+      <div class="idle-icon">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <div class="idle-title">Awaiting Input</div>
+      <div class="idle-hint">Upload a file and run inference<br>to see the diagnostic result here.</div>
+    </div>
+    {% endif %}
+
+  </div>
+</main>
+
+<!-- ── Footer ─────────────────────────────────────────────── -->
+<footer>
+  <span>ASD Inference Pipeline · Diagnostic Tool</span>
+  <span>For research use only</span>
+</footer>
+
+<script>
+  const dropZone   = document.getElementById('drop-zone');
+  const fileInput  = document.getElementById('file-input');
+  const fileNameEl = document.getElementById('file-name');
+  const submitBtn  = document.getElementById('submit-btn');
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length > 0) {
+      fileNameEl.textContent = '📎 ' + fileInput.files[0].name;
+      fileNameEl.classList.add('visible');
+    }
+  });
+
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length > 0) {
+      fileInput.files = e.dataTransfer.files;
+      fileNameEl.textContent = '📎 ' + e.dataTransfer.files[0].name;
+      fileNameEl.classList.add('visible');
+    }
+  });
+
+  document.getElementById('upload-form').addEventListener('submit', () => {
+    submitBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" style="animation:spin 1s linear infinite">
+        <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32"/>
+      </svg>
+      Running…`;
+    submitBtn.disabled = true;
+  });
+</script>
 
 </body>
 </html>

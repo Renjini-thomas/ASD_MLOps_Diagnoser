@@ -11,7 +11,7 @@ class MorphometricFeatureExtraction:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     # --------------------------------
-    # PARSE ASEG (ROBUST)
+    # PARSE ASEG FULL TABLE
     # --------------------------------
 
     def parse_aseg(self, file):
@@ -23,13 +23,12 @@ class MorphometricFeatureExtraction:
 
                 line = line.strip()
 
-                # skip headers
                 if not line or line.startswith("#"):
                     continue
 
                 tokens = line.split()
 
-                # skip non-table rows
+                # Only table rows start with numeric index
                 if not tokens[0].isdigit():
                     continue
 
@@ -39,20 +38,14 @@ class MorphometricFeatureExtraction:
                 region = tokens[4]
                 volume = float(tokens[3])
 
-                if region == "Left-Hippocampus":
-                    features["lh_hippo"] = volume
+                # clean feature name
+                feature_name = (
+                    region.lower()
+                    .replace("-", "_")
+                    .replace(".", "")
+                )
 
-                elif region == "Right-Hippocampus":
-                    features["rh_hippo"] = volume
-
-                elif region == "Left-Amygdala":
-                    features["lh_amyg"] = volume
-
-                elif region == "Right-Amygdala":
-                    features["rh_amyg"] = volume
-
-                elif region == "Brain-Stem":
-                    features["brain_stem"] = volume
+                features[f"vol_{feature_name}"] = volume
 
         return features
 

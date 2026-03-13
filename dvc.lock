@@ -42,8 +42,8 @@ stages:
       nfiles: 4426
     - path: src/components/mri_preprocessing.py
       hash: md5
-      md5: e9eafa3807141983c6f1efb75e023c12
-      size: 4198
+      md5: 683fe4d38616b14d3428e03797180fd1
+      size: 7432
     - path: src/pipeline/stage_03_mri_preprocessing.py
       hash: md5
       md5: c96ba5d6122055f5ca2129f34666263d
@@ -51,21 +51,21 @@ stages:
     outs:
     - path: data/preprocessed
       hash: md5
-      md5: f6775df37bfac31af92c7bbdef7459b7.dir
-      size: 13370256
+      md5: 17ffa30a2aff5d055abee77dd998c8e4.dir
+      size: 10346270
       nfiles: 1112
   feature_extraction:
     cmd: set PYTHONPATH=. && python -m src.pipeline.stage_04_feature_extraction
     deps:
     - path: data/preprocessed
       hash: md5
-      md5: f6775df37bfac31af92c7bbdef7459b7.dir
-      size: 13370256
+      md5: 17ffa30a2aff5d055abee77dd998c8e4.dir
+      size: 10346270
       nfiles: 1112
     - path: src/components/feature_extraction.py
       hash: md5
-      md5: d76be03d8999491df38d916189fa14ef
-      size: 14754
+      md5: 3506e2968a3331bde9248205c7c3a36e
+      size: 12673
     - path: src/pipeline/stage_04_feature_extraction.py
       hash: md5
       md5: 7fd83430bcca3b5eaf137fdb8def5d59
@@ -73,21 +73,21 @@ stages:
     outs:
     - path: artifacts/features
       hash: md5
-      md5: 7eee7319c8adfecabf87c46f82aab6c7.dir
-      size: 1756068
+      md5: 00b653d7d22c178cbab6ea65ca7073de.dir
+      size: 558158
       nfiles: 2
   feature_selection:
     cmd: set PYTHONPATH=. && python -m src.pipeline.stage_06_feature_selection
     deps:
-    - path: artifacts/aggregated_features
+    - path: artifacts/scaled_features
       hash: md5
-      md5: b71227c292d2b5c6716c4bc8aa41e9fa.dir
-      size: 1656231
-      nfiles: 2
+      md5: 2a597e27ee0784e9c03346819c987406.dir
+      size: 581492
+      nfiles: 3
     - path: src/components/feature_selection.py
       hash: md5
-      md5: 3cab683b751e7eaf0231ca0b2366a2da
-      size: 15918
+      md5: 5eafb05fe4beffec81777133731a9280
+      size: 21412
     - path: src/pipeline/stage_06_feature_selection.py
       hash: md5
       md5: aefe753f8bf78c049122fb2816363276
@@ -95,21 +95,21 @@ stages:
     outs:
     - path: artifacts/feature_selection
       hash: md5
-      md5: a34a4648906fc0a631da0c6ca046fd8b.dir
-      size: 1733688
-      nfiles: 3
+      md5: 9df295ef2b874e19448a05b1d1fa2f8e.dir
+      size: 456044
+      nfiles: 4
   model_training:
     cmd: set PYTHONPATH=. && python -m src.pipeline.stage_07_model_training
     deps:
     - path: artifacts/feature_selection
       hash: md5
-      md5: a34a4648906fc0a631da0c6ca046fd8b.dir
-      size: 1733688
-      nfiles: 3
+      md5: 9df295ef2b874e19448a05b1d1fa2f8e.dir
+      size: 456044
+      nfiles: 4
     - path: src/components/model_training.py
       hash: md5
-      md5: b78e9ce229ab32f0381bdda1420e1912
-      size: 7874
+      md5: fb154ad7c0e0e0d45d111a0294108644
+      size: 6984
     - path: src/pipeline/stage_07_model_training.py
       hash: md5
       md5: a99eb901e50a82c55d8bfef46fec3c05
@@ -117,26 +117,26 @@ stages:
     outs:
     - path: artifacts/model_training
       hash: md5
-      md5: 190a8689b2740fe63e49a764577cea62.dir
-      size: 274177
+      md5: 815aba224e97220faf09dde7ea4c0315.dir
+      size: 143603
       nfiles: 2
   model_evaluation:
     cmd: set PYTHONPATH=. && python -m src.pipeline.stage_08_model_evaluation
     deps:
     - path: artifacts/feature_selection
       hash: md5
-      md5: a34a4648906fc0a631da0c6ca046fd8b.dir
-      size: 1733688
-      nfiles: 3
+      md5: 9df295ef2b874e19448a05b1d1fa2f8e.dir
+      size: 456044
+      nfiles: 4
     - path: artifacts/model_training
       hash: md5
-      md5: 190a8689b2740fe63e49a764577cea62.dir
-      size: 274177
+      md5: 815aba224e97220faf09dde7ea4c0315.dir
+      size: 143603
       nfiles: 2
     - path: src/components/model_evaluation.py
       hash: md5
-      md5: a494a481372db4cf3e7267e94da60d7d
-      size: 7049
+      md5: 71f73ec0f08791b84d5e4111278130f8
+      size: 6566
     - path: src/pipeline/stage_08_model_evaluation.py
       hash: md5
       md5: 2dde754847dfb671e13b5c872417a19b
@@ -144,9 +144,9 @@ stages:
     outs:
     - path: artifacts/model_evaluation
       hash: md5
-      md5: ebccc9ff2d9f46c78a01b81a32305287.dir
-      size: 35851
-      nfiles: 4
+      md5: a0d83f4f7220fefb8b4caf7a887b9b63.dir
+      size: 32724
+      nfiles: 3
   feature_aggregation:
     cmd: set PYTHONPATH=. && python -m src.pipeline.stage_05_feature_aggregation
     deps:
@@ -157,8 +157,8 @@ stages:
       nfiles: 2
     - path: artifacts/morphometric_features
       hash: md5
-      md5: 4efb2860f514ce2aeb2861c91dbf0ad9.dir
-      size: 64267
+      md5: 5e6f99bbf70c6f82ec676d17d08e3a97.dir
+      size: 344976
       nfiles: 2
     - path: src/components/feature_aggregation.py
       hash: md5
@@ -171,8 +171,8 @@ stages:
     outs:
     - path: artifacts/aggregated_features
       hash: md5
-      md5: b71227c292d2b5c6716c4bc8aa41e9fa.dir
-      size: 1656231
+      md5: 332e47d02c5974de01e96a6daeb7fab6.dir
+      size: 1936940
       nfiles: 2
   site_harmonisation:
     cmd: set PYTHONPATH=. && python -m src.pipeline.stage_06_site_harmonisation
@@ -233,8 +233,8 @@ stages:
       nfiles: 4426
     - path: src/components/morphometric_feature_extraction.py
       hash: md5
-      md5: ac1568a731e1bbf95e4f4dfd39e669cd
-      size: 2692
+      md5: fab7ae1f2662841042b37aac526f6d3b
+      size: 2438
     - path: src/pipeline/stage_04b_morphometric_feature_extraction.py
       hash: md5
       md5: 58fb2600251bee76e47d477b8ed6ce57
@@ -242,21 +242,21 @@ stages:
     outs:
     - path: artifacts/morphometric_features
       hash: md5
-      md5: 4efb2860f514ce2aeb2861c91dbf0ad9.dir
-      size: 64267
+      md5: 5e6f99bbf70c6f82ec676d17d08e3a97.dir
+      size: 344976
       nfiles: 2
   feature_scaling:
     cmd: set PYTHONPATH=. && python -m src.pipeline.stage_05b_feature_scaling
     deps:
-    - path: artifacts/aggregated_features
+    - path: artifacts/features
       hash: md5
-      md5: b71227c292d2b5c6716c4bc8aa41e9fa.dir
-      size: 1656231
+      md5: 00b653d7d22c178cbab6ea65ca7073de.dir
+      size: 558158
       nfiles: 2
     - path: src/components/feature_scaling.py
       hash: md5
-      md5: 609c49d82f8d8488aff22410e45dd637
-      size: 2039
+      md5: 8436c0cba385255900b6f3f168d56bd0
+      size: 2028
     - path: src/pipeline/stage_05b_feature_scaling.py
       hash: md5
       md5: 4e55277fcc7874c066b62e06dc7a3fb9
@@ -264,6 +264,6 @@ stages:
     outs:
     - path: artifacts/scaled_features
       hash: md5
-      md5: a1a02b32cdbfbf9159479d63ac1a8853.dir
-      size: 1810726
+      md5: 2a597e27ee0784e9c03346819c987406.dir
+      size: 581492
       nfiles: 3

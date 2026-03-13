@@ -1,94 +1,72 @@
-import numpy as np
 import cv2
-import nibabel as nib
-import pandas as pd
 import joblib
-from pathlib import Path
+import pandas as pd
+import mlflow.pyfunc
 
 from src.components.feature_extraction import FeatureExtraction
+from dotenv import load_dotenv
+load_dotenv()
 
-
-class InferencePipeline:
+class ASDInference:
 
     def __init__(self):
 
-        self.model = joblib.load("artifacts/model_training/best_model.pkl")
+        print("Loading staging model...")
+        mlflow.set_tracking_uri(
+            "https://dagshub.com/renjini2539thomas/ASD_MLOps_Diagnoser.mlflow"
+        )
+        self.model = mlflow.pyfunc.load_model(
+            "models:/ASD_MRI_Diagnosis_Model@staging"
+        )
 
-        selected = pd.read_csv("artifacts/feature_selection/selected_features.csv")
-        self.selected_features = selected["feature"].tolist()
+        print("Loading scaler...")
+        self.scaler = joblib.load(
+            "artifacts/scaled_features/scaler.pkl"
+        )
+
+        print("Loading selected features...")
+        self.selected_features = joblib.load(
+            "artifacts/feature_selection/selected_features.pkl"
+        )
 
         self.extractor = FeatureExtraction()
 
-    # ----------------------------
-    # LOAD IMAGE
-    # ----------------------------
+    # ------------------------------------
 
-    def load_image(self, file_path):
+    def predict(self, image_path):
 
-        ext = Path(file_path).suffix.lower()
+        img = cv2.imread(image_path, 0)
 
-        if ext in [".mgz", ".nii", ".nii.gz"]:
+        if img is None:
+            raise ValueError("Invalid MRI")
 
-            img = nib.load(file_path)
-            data = img.get_fdata()
+        # FEATURE EXTRACTION
+        features = (
+            self.extractor.glcm_features(img)
+            + self.extractor.lbp_features(img)
+            + self.extractor.histogram_features(img)
+            + self.extractor.wavelet_features(img)
+        )
 
-            mid = data.shape[0] // 2
-            img = data[mid, :, :]
+        X = pd.DataFrame(
+            [features],
+            columns=self.extractor.get_feature_names()
+        )
 
-        else:
+        # SCALING
+        X_scaled = self.scaler.transform(X)
 
-            img = cv2.imread(file_path, 0)
+        X_scaled = pd.DataFrame(
+            X_scaled,
+            columns=self.extractor.get_feature_names()
+        )
 
-        return img
+        # FEATURE SELECTION
+        X_selected = X_scaled[self.selected_features]
 
-    # ----------------------------
-    # PREPROCESS
-    # ----------------------------
+        # PREDICTION
+        pred = self.model.predict(X_selected)[0]
 
-    def preprocess(self, img):
+        prob = self.model.predict_proba(X_selected).max()
 
-        img = cv2.resize(img, (256, 256))
-
-        img = (img - img.min()) / (img.max() - img.min() + 1e-8)
-
-        img = (img * 255).astype(np.uint8)
-
-        return img
-
-    # ----------------------------
-    # FEATURE PIPELINE
-    # ----------------------------
-
-    def extract_features(self, img):
-
-        glcm = self.extractor.glcm_features(img)
-        lbp = self.extractor.lbp_features(img)
-        gfcc = self.extractor.gfcc_features(img)
-
-        features = glcm + lbp + gfcc
-
-        feature_names = self.extractor.get_feature_names()
-
-        df = pd.DataFrame([features], columns=feature_names)
-
-        return df
-
-    # ----------------------------
-    # PREDICT
-    # ----------------------------
-
-    def predict(self, file_path):
-
-        img = self.load_image(file_path)
-
-        img = self.preprocess(img)
-
-        features = self.extract_features(img)
-
-        features = features[self.selected_features]
-
-        prediction = self.model.predict(features)[0]
-
-        prob = self.model.predict_proba(features)[0]
-
-        return prediction, prob
+        return pred, prob
