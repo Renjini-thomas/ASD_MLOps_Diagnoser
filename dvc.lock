@@ -267,3 +267,30 @@ stages:
       md5: 2a597e27ee0784e9c03346819c987406.dir
       size: 581492
       nfiles: 3
+  explainability:
+    cmd: set PYTHONPATH=. && python -m src.pipeline.stage_09_explainability
+    deps:
+    - path: artifacts/feature_selection
+      hash: md5
+      md5: 9df295ef2b874e19448a05b1d1fa2f8e.dir
+      size: 456044
+      nfiles: 4
+    - path: artifacts/model_training
+      hash: md5
+      md5: 815aba224e97220faf09dde7ea4c0315.dir
+      size: 143603
+      nfiles: 2
+    - path: src/components/explainability.py
+      hash: md5
+      md5: becdcb0828710c6a004ef53c4fd74fd2
+      size: 4224
+    - path: src/pipeline/stage_09_explainability.py
+      hash: md5
+      md5: 2263adef4c15517c2b4379ab3f5ebbad
+      size: 538
+    outs:
+    - path: artifacts/explainability
+      hash: md5
+      md5: d94d29228cc69c6973745ec98bcb82a0.dir
+      size: 87398
+      nfiles: 2
