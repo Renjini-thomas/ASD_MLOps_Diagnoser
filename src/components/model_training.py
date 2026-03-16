@@ -13,7 +13,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
-from sklearn.metrics import make_scorer, f1_score
+from sklearn.metrics import make_scorer, f1_score,accuracy_score, precision_score, recall_score, f1_score, balanced_accuracy_score  
 
 from dotenv import load_dotenv
 load_dotenv()

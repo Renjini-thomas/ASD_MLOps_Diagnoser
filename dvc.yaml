@@ -76,12 +76,12 @@ stages:
     outs:
       - artifacts/model_evaluation
   
-  explainability:
-    cmd: set PYTHONPATH=. && python -m src.pipeline.stage_09_explainability
-    deps:
-      - src/pipeline/stage_09_explainability.py
-      - src/components/explainability.py
-      - artifacts/model_training
-      - artifacts/feature_selection
-    outs:
-      - artifacts/explainability
+  # explainability:
+  #   cmd: set PYTHONPATH=. && python -m src.pipeline.stage_09_explainability
+  #   deps:
+  #     - src/pipeline/stage_09_explainability.py
+  #     - src/components/explainability.py
+  #     - artifacts/model_training
+  #     - artifacts/feature_selection
+  #   outs:
+  #     - artifacts/explainability

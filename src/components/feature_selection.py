@@ -430,7 +430,7 @@ class FeatureSelection:
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        self.top_k = 20  
+        self.top_k = 60
 
     def run(self):
 

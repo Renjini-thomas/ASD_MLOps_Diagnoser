@@ -1,4 +1,163 @@
 import cv2
+import torch
+import numpy as np
+import pandas as pd
+
+from pathlib import Path
+from tqdm import tqdm
+from torchvision import models, transforms
+
+
+class FeatureExtraction:
+
+    def __init__(self):
+
+        self.input_dir = Path("data/preprocessed")
+        self.output_dir = Path("artifacts/features")
+
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+
+        # ---------------- GPU SETUP ----------------
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
+
+        torch.backends.cudnn.benchmark = True
+
+        # ---------------- LOAD MODEL ----------------
+        model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+
+        # remove classifier
+        self.feature_extractor = torch.nn.Sequential(
+            *list(model.children())[:-1]
+        )
+
+        self.feature_extractor.to(self.device)
+        self.feature_extractor.eval()
+
+        # ---------------- TRANSFORM ----------------
+        self.transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Resize((224, 224)),
+            transforms.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225]
+            )
+        ])
+
+        self.batch_size = 16   # SAFE for 4GB GPU
+
+    # --------------------------------------------
+    # LOAD IMAGE
+    # --------------------------------------------
+
+    def load_image(self, path):
+
+        img = cv2.imread(str(path), 0)
+
+        if img is None:
+            return None
+
+        img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+
+        img = self.transform(img)
+
+        return img
+
+    # --------------------------------------------
+    # PROCESS ONE SPLIT
+    # --------------------------------------------
+
+    def process_split(self, split):
+
+        rows = []
+
+        image_tensors = []
+        meta = []
+
+        for label in ["autism", "control"]:
+
+            folder = self.input_dir / split / label
+            files = list(folder.glob("*.png"))
+
+            for f in tqdm(files, desc=f"{split}-{label}"):
+
+                img = self.load_image(f)
+
+                if img is None:
+                    continue
+
+                image_tensors.append(img)
+                meta.append((f.stem, label))
+
+                # ---- batch inference ----
+                if len(image_tensors) == self.batch_size:
+
+                    self.extract_batch(
+                        image_tensors,
+                        meta,
+                        rows
+                    )
+
+                    image_tensors = []
+                    meta = []
+
+        # last batch
+        if len(image_tensors) > 0:
+            self.extract_batch(
+                image_tensors,
+                meta,
+                rows
+            )
+
+        # ----- save dataframe -----
+        feature_dim = len(rows[0]) - 2
+
+        columns = (
+            ["subject_id"]
+            + [f"deep_{i}" for i in range(feature_dim)]
+            + ["label"]
+        )
+
+        df = pd.DataFrame(rows, columns=columns)
+
+        df.to_csv(
+            self.output_dir / f"{split}_deep_features.csv",
+            index=False
+        )
+
+        print(split, "shape:", df.shape)
+
+    # --------------------------------------------
+    # BATCH FEATURE EXTRACTION
+    # --------------------------------------------
+
+    def extract_batch(self, tensors, meta, rows):
+
+        batch = torch.stack(tensors).to(self.device)
+
+        with torch.no_grad():
+            feats = self.feature_extractor(batch)
+
+        feats = feats.view(feats.size(0), -1).cpu().numpy()
+
+        for i in range(len(meta)):
+            subject_id, label = meta[i]
+            feature_vector = feats[i].tolist()
+
+            rows.append(
+                [subject_id] + feature_vector + [label]
+            )
+
+    # --------------------------------------------
+
+    def run(self):
+
+        self.process_split("train")
+        self.process_split("test")
+
+        print("✅ Deep Feature Extraction Completed")
+import cv2
 import numpy as np
 import pandas as pd
 # import scipy.stats
@@ -233,184 +392,395 @@ import pandas as pd
 #         self.process_split("train")
 #         self.process_split("test")
 
-import cv2
-import numpy as np
-import pandas as pd
-import pywt
-import scipy.stats
 
-from pathlib import Path
-from tqdm import tqdm
+# VERSION 32
+# import cv2
+# import numpy as np
+# import pandas as pd
+# import pywt
+# import scipy.stats
 
-from skimage.feature import graycomatrix, graycoprops, local_binary_pattern
+# from pathlib import Path
+# from tqdm import tqdm
+
+# from skimage.feature import graycomatrix, graycoprops, local_binary_pattern
 
 
-class FeatureExtraction:
+# class FeatureExtraction:
 
-    def __init__(self):
+#     def __init__(self):
 
-        self.input_dir = Path("data/preprocessed")
-        self.output_dir = Path("artifacts/features")
+#         self.input_dir = Path("data/preprocessed")
+#         self.output_dir = Path("artifacts/features")
 
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+#         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-    # ------------------------------------------------
-    # FEATURE NAMES
-    # ------------------------------------------------
+#     # ------------------------------------------------
+#     # FEATURE NAMES
+#     # ------------------------------------------------
 
-    def get_feature_names(self):
+#     def get_feature_names(self):
 
-        glcm = [
-            "glcm_contrast",
-            "glcm_correlation",
-            "glcm_energy",
-            "glcm_homogeneity",
-            "glcm_entropy",
-            "glcm_dissimilarity"
-        ]
+#         glcm = [
+#             "glcm_contrast",
+#             "glcm_correlation",
+#             "glcm_energy",
+#             "glcm_homogeneity",
+#             "glcm_entropy",
+#             "glcm_dissimilarity"
+#         ]
 
-        lbp = [f"lbp_{i}" for i in range(10)]
+#         lbp = [f"lbp_{i}" for i in range(10)]
 
-        hist = [
-            "int_mean",
-            "int_std",
-            "int_skew",
-            "int_kurtosis",
-            "int_p10",
-            "int_p50",
-            "int_p90"
-        ]
+#         hist = [
+#             "int_mean",
+#             "int_std",
+#             "int_skew",
+#             "int_kurtosis",
+#             "int_p10",
+#             "int_p50",
+#             "int_p90"
+#         ]
 
-        wavelet = [
-            "wavelet_LL_energy",
-            "wavelet_LH_energy",
-            "wavelet_HL_energy",
-            "wavelet_HH_energy"
-        ]
+#         wavelet = [
+#             "wavelet_LL_energy",
+#             "wavelet_LH_energy",
+#             "wavelet_HL_energy",
+#             "wavelet_HH_energy"
+#         ]
 
-        return glcm + lbp + hist + wavelet
+#         return glcm + lbp + hist + wavelet
 
-    # ------------------------------------------------
-    # GLCM
-    # ------------------------------------------------
+#     # ------------------------------------------------
+#     # GLCM
+#     # ------------------------------------------------
 
-    def glcm_features(self, img):
+#     def glcm_features(self, img):
 
-        img_q = (img / 4).astype(np.uint8)
+#         img_q = (img / 4).astype(np.uint8)
 
-        glcm = graycomatrix(
-            img_q,
-            distances=[1, 2],
-            angles=[0, np.pi/2],
-            levels=64,
-            symmetric=True,
-            normed=True
-        )
+#         glcm = graycomatrix(
+#             img_q,
+#             distances=[1, 2],
+#             angles=[0, np.pi/2],
+#             levels=64,
+#             symmetric=True,
+#             normed=True
+#         )
 
-        contrast = np.mean(graycoprops(glcm, 'contrast'))
-        corr = np.mean(graycoprops(glcm, 'correlation'))
-        energy = np.mean(graycoprops(glcm, 'energy'))
-        homo = np.mean(graycoprops(glcm, 'homogeneity'))
-        diss = np.mean(graycoprops(glcm, 'dissimilarity'))
+#         contrast = np.mean(graycoprops(glcm, 'contrast'))
+#         corr = np.mean(graycoprops(glcm, 'correlation'))
+#         energy = np.mean(graycoprops(glcm, 'energy'))
+#         homo = np.mean(graycoprops(glcm, 'homogeneity'))
+#         diss = np.mean(graycoprops(glcm, 'dissimilarity'))
 
-        p = glcm.mean(axis=(2,3))
-        entropy = -np.sum(p * np.log2(p + 1e-10))
+#         p = glcm.mean(axis=(2,3))
+#         entropy = -np.sum(p * np.log2(p + 1e-10))
 
-        return [contrast, corr, energy, homo, entropy, diss]
+#         return [contrast, corr, energy, homo, entropy, diss]
 
-    # ------------------------------------------------
-    # LBP (REDUCED)
-    # ------------------------------------------------
+#     # ------------------------------------------------
+#     # LBP (REDUCED)
+#     # ------------------------------------------------
 
-    def lbp_features(self, img):
+#     def lbp_features(self, img):
 
-        lbp = local_binary_pattern(img, 8, 1, method="uniform")
-        hist, _ = np.histogram(lbp.ravel(), bins=10, range=(0, 10))
-        hist = hist / (np.sum(hist) + 1e-10)
+#         lbp = local_binary_pattern(img, 8, 1, method="uniform")
+#         hist, _ = np.histogram(lbp.ravel(), bins=10, range=(0, 10))
+#         hist = hist / (np.sum(hist) + 1e-10)
 
-        return hist.tolist()
+#         return hist.tolist()
 
-    # ------------------------------------------------
-    # HISTOGRAM FEATURES
-    # ------------------------------------------------
+#     # ------------------------------------------------
+#     # HISTOGRAM FEATURES
+#     # ------------------------------------------------
 
-    def histogram_features(self, img):
+#     def histogram_features(self, img):
 
-        flat = img.flatten()
+#         flat = img.flatten()
 
-        mean = np.mean(flat)
-        std = np.std(flat)
-        skew = scipy.stats.skew(flat)
-        kurt = scipy.stats.kurtosis(flat)
+#         mean = np.mean(flat)
+#         std = np.std(flat)
+#         skew = scipy.stats.skew(flat)
+#         kurt = scipy.stats.kurtosis(flat)
 
-        p10 = np.percentile(flat, 10)
-        p50 = np.percentile(flat, 50)
-        p90 = np.percentile(flat, 90)
+#         p10 = np.percentile(flat, 10)
+#         p50 = np.percentile(flat, 50)
+#         p90 = np.percentile(flat, 90)
 
-        return [mean, std, skew, kurt, p10, p50, p90]
+#         return [mean, std, skew, kurt, p10, p50, p90]
 
-    # ------------------------------------------------
-    # WAVELET FEATURES
-    # ------------------------------------------------
+#     # ------------------------------------------------
+#     # WAVELET FEATURES
+#     # ------------------------------------------------
 
-    def wavelet_features(self, img):
+#     def wavelet_features(self, img):
 
-        coeffs = pywt.dwt2(img, 'haar')
+#         coeffs = pywt.dwt2(img, 'haar')
 
-        LL, (LH, HL, HH) = coeffs
+#         LL, (LH, HL, HH) = coeffs
 
-        def energy(x):
-            return np.sum(x ** 2) / (x.size + 1e-10)
+#         def energy(x):
+#             return np.sum(x ** 2) / (x.size + 1e-10)
 
-        return [
-            energy(LL),
-            energy(LH),
-            energy(HL),
-            energy(HH)
-        ]
+#         return [
+#             energy(LL),
+#             energy(LH),
+#             energy(HL),
+#             energy(HH)
+#         ]
 
-    # ------------------------------------------------
-    # PROCESS SPLIT
-    # ------------------------------------------------
+#     # ------------------------------------------------
+#     # PROCESS SPLIT
+#     # ------------------------------------------------
 
-    def process_split(self, split):
+#     def process_split(self, split):
 
-        dataset = []
+#         dataset = []
 
-        for label in ["autism", "control"]:
+#         for label in ["autism", "control"]:
 
-            folder = self.input_dir / split / label
-            files = list(folder.glob("*.png"))
+#             folder = self.input_dir / split / label
+#             files = list(folder.glob("*.png"))
 
-            for f in tqdm(files):
+#             for f in tqdm(files):
 
-                img = cv2.imread(str(f), 0)
+#                 img = cv2.imread(str(f), 0)
 
-                if img is None:
-                    continue
+#                 if img is None:
+#                     continue
 
-                features = (
-                    self.glcm_features(img) +
-                    self.lbp_features(img) +
-                    self.histogram_features(img) +
-                    self.wavelet_features(img)
-                )
+#                 features = (
+#                     self.glcm_features(img) +
+#                     self.lbp_features(img) +
+#                     self.histogram_features(img) +
+#                     self.wavelet_features(img)
+#                 )
 
-                dataset.append([f.stem] + features + [label])
+#                 dataset.append([f.stem] + features + [label])
 
-        columns = ["subject_id"] + self.get_feature_names() + ["label"]
+#         columns = ["subject_id"] + self.get_feature_names() + ["label"]
 
-        df = pd.DataFrame(dataset, columns=columns)
+#         df = pd.DataFrame(dataset, columns=columns)
 
-        df.to_csv(self.output_dir / f"{split}_features.csv", index=False)
+#         df.to_csv(self.output_dir / f"{split}_features.csv", index=False)
 
-        print(split, "shape:", df.shape)
+#         print(split, "shape:", df.shape)
 
-    # ------------------------------------------------
+#     # ------------------------------------------------
 
-    def run(self):
+#     def run(self):
 
-        self.process_split("train")
-        self.process_split("test")
+#         self.process_split("train")
+#         self.process_split("test")
 
-        print("Axial Feature Extraction Completed")
+#         print("Axial Feature Extraction Completed")
+
+# import cv2
+# import numpy as np
+# import pandas as pd
+# import pywt
+# import scipy.stats
+
+# from pathlib import Path
+# from tqdm import tqdm
+
+# from skimage.feature import graycomatrix, graycoprops, local_binary_pattern
+
+
+# class FeatureExtraction:
+
+#     def __init__(self):
+
+#         self.input_dir = Path("data/preprocessed")
+#         self.output_dir = Path("artifacts/features")
+
+#         self.output_dir.mkdir(parents=True, exist_ok=True)
+
+#     # ------------------------------------------------
+#     # FEATURE NAMES
+#     # ------------------------------------------------
+
+#     def get_feature_names(self):
+
+#         glcm = [
+#             "glcm_contrast",
+#             "glcm_correlation",
+#             "glcm_energy",
+#             "glcm_homogeneity",
+#             "glcm_entropy",
+#             "glcm_dissimilarity"
+#         ]
+
+#         lbp = [f"lbp_{i}" for i in range(10)]
+
+#         hist = [
+#             "int_mean",
+#             "int_std",
+#             "int_skew",
+#             "int_kurtosis",
+#             "int_p10",
+#             "int_p50",
+#             "int_p90"
+#         ]
+
+#         wavelet = [
+#             "wavelet_LL_energy",
+#             "wavelet_LH_energy",
+#             "wavelet_HL_energy",
+#             "wavelet_HH_energy"
+#         ]
+
+#         return glcm + lbp + hist + wavelet
+
+#     # ------------------------------------------------
+#     # GLCM
+#     # ------------------------------------------------
+
+#     def glcm_features(self, img):
+
+#         img_q = (img / 4).astype(np.uint8)
+
+#         glcm = graycomatrix(
+#             img_q,
+#             distances=[1, 2],
+#             angles=[0, np.pi/2],
+#             levels=64,
+#             symmetric=True,
+#             normed=True
+#         )
+
+#         contrast = np.mean(graycoprops(glcm, 'contrast'))
+#         corr = np.mean(graycoprops(glcm, 'correlation'))
+#         energy = np.mean(graycoprops(glcm, 'energy'))
+#         homo = np.mean(graycoprops(glcm, 'homogeneity'))
+#         diss = np.mean(graycoprops(glcm, 'dissimilarity'))
+
+#         p = glcm.mean(axis=(2, 3))
+#         entropy = -np.sum(p * np.log2(p + 1e-10))
+
+#         return [contrast, corr, energy, homo, entropy, diss]
+
+#     # ------------------------------------------------
+#     # LBP
+#     # ------------------------------------------------
+
+#     def lbp_features(self, img):
+
+#         lbp = local_binary_pattern(img, 8, 1, method="uniform")
+#         hist, _ = np.histogram(lbp.ravel(), bins=10, range=(0, 10))
+#         hist = hist / (np.sum(hist) + 1e-10)
+
+#         return hist.tolist()
+
+#     # ------------------------------------------------
+#     # HISTOGRAM
+#     # ------------------------------------------------
+
+#     def histogram_features(self, img):
+
+#         flat = img.flatten()
+
+#         mean = np.mean(flat)
+#         std = np.std(flat)
+#         skew = scipy.stats.skew(flat)
+#         kurt = scipy.stats.kurtosis(flat)
+
+#         p10 = np.percentile(flat, 10)
+#         p50 = np.percentile(flat, 50)
+#         p90 = np.percentile(flat, 90)
+
+#         return [mean, std, skew, kurt, p10, p50, p90]
+
+#     # ------------------------------------------------
+#     # WAVELET
+#     # ------------------------------------------------
+
+#     def wavelet_features(self, img):
+
+#         coeffs = pywt.dwt2(img, 'haar')
+
+#         LL, (LH, HL, HH) = coeffs
+
+#         def energy(x):
+#             return np.sum(x ** 2) / (x.size + 1e-10)
+
+#         return [
+#             energy(LL),
+#             energy(LH),
+#             energy(HL),
+#             energy(HH)
+#         ]
+
+#     # ------------------------------------------------
+#     # PROCESS SPLIT (3-SLICE CONCATENATION)
+#     # ------------------------------------------------
+
+#     def process_split(self, split):
+
+#         dataset = []
+
+#         for label in ["autism", "control"]:
+
+#             folder = self.input_dir / split / label
+#             files = list(folder.glob("*.png"))
+
+#             # ⭐ group slices per subject
+#             subject_groups = {}
+
+#             for f in files:
+#                 subject_id = f.stem.rsplit("_", 1)[0]
+#                 subject_groups.setdefault(subject_id, []).append(f)
+
+#             # ⭐ process each subject
+#             for subject_id, slice_files in tqdm(subject_groups.items()):
+
+#                 slice_files = sorted(slice_files)
+
+#                 concat_features = []
+
+#                 for f in slice_files:
+
+#                     img = cv2.imread(str(f), 0)
+
+#                     if img is None:
+#                         continue
+
+#                     features = (
+#                         self.glcm_features(img) +
+#                         self.lbp_features(img) +
+#                         self.histogram_features(img) +
+#                         self.wavelet_features(img)
+#                     )
+
+#                     concat_features.extend(features)
+
+#                 if len(concat_features) == 0:
+#                     continue
+
+#                 dataset.append([subject_id] + concat_features + [label])
+
+#         # ⭐ build column names
+#         base_names = self.get_feature_names()
+
+#         columns = ["subject_id"]
+
+#         for tag in ["m1", "m0", "p1"]:
+#             columns += [f"{name}_{tag}" for name in base_names]
+
+#         columns += ["label"]
+
+#         df = pd.DataFrame(dataset, columns=columns)
+
+#         df.to_csv(self.output_dir / f"{split}_features.csv", index=False)
+
+#         print(split, "shape:", df.shape)
+
+#     # ------------------------------------------------
+
+#     def run(self):
+
+#         self.process_split("train")
+#         self.process_split("test")
+
+#         print("3-Slice Feature Concatenation Completed")

@@ -21,8 +21,8 @@ class FeatureScaling:
 
         print("Loading aggregated features...")
 
-        train_df = pd.read_csv(self.input_dir / "train_features.csv")
-        test_df = pd.read_csv(self.input_dir / "test_features.csv")
+        train_df = pd.read_csv(self.input_dir / "train_deep_features.csv")
+        test_df = pd.read_csv(self.input_dir / "test_deep_features.csv")
 
         id_train = train_df["subject_id"]
         label_train = train_df["label"]

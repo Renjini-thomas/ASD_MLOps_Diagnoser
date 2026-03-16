@@ -2,9 +2,9 @@ from src.pipeline.stage_01_data_ingestion import run_stage as ingestion_stage
 from src.pipeline.stage_02_data_preparation import run_stage as preparation_stage
 from src.pipeline.stage_03_mri_preprocessing import run_stage as preprocessing_stage
 from src.pipeline.stage_04_feature_extraction import run_stage as feature_extraction_stage
-from src.pipeline.stage_05_feature_selection import run_stage as feature_selection_stage
-from src.pipeline.stage_06_model_training import run_stage as model_training_stage
-from src.pipeline.stage_07_model_evaluation import run_stage as model_evaluation_stage
+from src.pipeline.stage_06_site_harmonisation import run_stage as feature_selection_stage
+from src.pipeline.stage_08_model_training import run_stage as model_training_stage
+from src.pipeline.stage_09_model_evaluation import run_stage as model_evaluation_stage
 def main():
 
     # print("Starting ASD MLOps Pipeline")

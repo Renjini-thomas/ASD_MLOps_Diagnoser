@@ -1,3 +1,90 @@
+# import nibabel as nib
+# import numpy as np
+# import cv2
+# from pathlib import Path
+# from tqdm import tqdm
+
+
+# class MRIPreprocessing:
+
+#     def __init__(self):
+
+#         self.input_dir = Path("data/processed")
+#         self.output_dir = Path("data/preprocessed")
+
+#         self.output_dir.mkdir(parents=True, exist_ok=True)
+
+#     # -----------------------------------------------------
+
+#     def normalize(self, img):
+
+#         img = img - np.min(img)
+
+#         if np.max(img) != 0:
+#             img = img / np.max(img)
+
+#         img = (img * 255).astype(np.uint8)
+
+#         return img
+
+#     # -----------------------------------------------------
+
+#     def process_file(self, mgz_path, subject_name, output_folder):
+
+#         img = nib.load(str(mgz_path)).get_fdata()
+
+#         mid = img.shape[2] // 2
+
+#         # ⭐ 3 central slice indices + tags
+#         slice_info = [
+#             (mid - 1, "m1"),
+#             (mid, "m0"),
+#             (mid + 1, "p1")
+#         ]
+
+#         for idx, tag in slice_info:
+
+#             if idx < 0 or idx >= img.shape[2]:
+#                 continue
+
+#             slice_img = img[:, :, idx]
+
+#             slice_img = self.normalize(slice_img)
+
+#             slice_img = cv2.resize(slice_img, (256, 256))
+
+#             save_path = output_folder / f"{subject_name}_{tag}.png"
+
+#             cv2.imwrite(str(save_path), slice_img)
+
+#     # -----------------------------------------------------
+
+#     def run(self):
+
+#         for split in ["train", "test"]:
+
+#             for label in ["autism", "control"]:
+
+#                 input_folder = self.input_dir / split / label
+#                 output_folder = self.output_dir / split / label
+
+#                 output_folder.mkdir(parents=True, exist_ok=True)
+
+#                 subjects = list(input_folder.iterdir())
+
+#                 for subject in tqdm(subjects):
+
+#                     mgz_path = subject / "mri" / "brain.mgz"
+
+#                     if not mgz_path.exists():
+#                         continue
+
+#                     self.process_file(
+#                         mgz_path,
+#                         subject.name,
+#                         output_folder
+#                     )
+# version 32 preprocessing with single slice
 import nibabel as nib
 import numpy as np
 import cv2
@@ -27,13 +114,8 @@ class MRIPreprocessing:
     def process_file(self, mgz_path, save_path):
 
         img = nib.load(str(mgz_path)).get_fdata()
-
-        # # Mid sagittal slice
-        # mid_index = img.shape[0] // 2
-        # slice_img = img[mid_index, :, :]
-        # mid axial slice
-        mid_index = img.shape[2] // 2
-        slice_img = img[:, :, mid_index]
+        mid_index = img.shape[0] // 2
+        slice_img = img[mid_index, :, :]
 
         slice_img = self.normalize(slice_img)
 
@@ -65,6 +147,7 @@ class MRIPreprocessing:
                     save_path = output_folder / (subject.name + ".png")
 
                     self.process_file(mgz_path, save_path)
+
 # # import nibabel as nib
 # # import numpy as np
 # # import cv2
